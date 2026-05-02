@@ -1,0 +1,91 @@
+basePath: /api/v2
+definitions:
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      platform:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API Documentation
+  title: UKAI Syndrome API V2
+  version: "2.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login dengan email dan password
+      parameters:
+      - description: Login Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses: {}
+      summary: Login user
+      tags:
+      - Auth
+  /materi/peserta/{id_modul}:
+    get:
+      consumes:
+      - application/json
+      description: Get list materi berdasarkan modul
+      parameters:
+      - description: ID Modul
+        in: path
+        name: id_modul
+        required: true
+        type: integer
+      - description: Filter tipe materi (video|document)
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get materi peserta
+      tags:
+      - Materi
+  /modul/peserta:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of modules for the logged-in user based on their role
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get modules for a user
+      tags:
+      - Module
+  /user/me:
+    get:
+      consumes:
+      - application/json
+      description: Get logged in user profile based on JWT
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - User
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

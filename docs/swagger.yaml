@@ -9,7 +9,11 @@ definitions:
       platform:
         type: string
     type: object
-host: localhost:8080
+  auth.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
 info:
   contact: {}
   description: API Documentation
@@ -34,6 +38,24 @@ paths:
       summary: Login user
       tags:
       - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generate new access token using refresh token
+      parameters:
+      - description: Refresh Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshRequest'
+      produces:
+      - application/json
+      responses: {}
+      summary: Refresh access token
+      tags:
+      - Auth
   /materi/peserta/{id_modul}:
     get:
       consumes:
@@ -45,7 +67,7 @@ paths:
         name: id_modul
         required: true
         type: integer
-      - description: Filter tipe materi (video|document)
+      - description: Filter tipe materi (video | document)
         in: query
         name: type
         type: string

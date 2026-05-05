@@ -2,18 +2,13 @@ package auth
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"golang.org/x/crypto/pbkdf2"
-	"golang.org/x/crypto/scrypt"
 )
 
 type Service struct {
@@ -22,9 +17,13 @@ type Service struct {
 	JWTSecret string
 }
 
+//
 // ==========================
+// PUBLIC METHODS (ENTRY POINT)
+// ==========================
+//
+
 // LOGIN
-// ==========================
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
 
 	user, err := s.Repo.FindByEmail(ctx, req.Email)
@@ -32,51 +31,21 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 		return nil, err
 	}
 
-	if user.Status != 1 {
-		return nil, errors.New("user inactive")
+	if err := s.validateLogin(user, req.Password); err != nil {
+		return nil, err
 	}
 
-	// ==========================
-	// VALIDASI LOGIN
-	// ==========================
-	var valid bool
-
-	// cek password
-	if user.Password != "" {
-		valid = verifyHash(user.Password, req.Password)
-	}
-
-	// fallback ke kode pemulihan
-	if !valid && user.KodePemulihan != "" {
-		if req.Password == user.KodePemulihan {
-			valid = true
-		}
-	}
-
-	if !valid {
-		return nil, errors.New("invalid credentials")
-	}
-
-	// ==========================
-	// TOKEN
-	// ==========================
-	accessToken, err := s.generateAccessToken(user.ID, user.Role, req.Platform)
+	accessToken, jti, err := s.generateAccessToken(user.ID, user.Role, req.Platform)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
-	refreshToken, _, err := s.generateRefreshToken(user.ID, req.Platform)
+	refreshToken, _, err := s.generateRefreshToken(user.ID, user.Role, req.Platform)
 	if err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
-	// ==========================
-	// REDIS SESSION
-	// ==========================
-	key := s.buildSessionKey(user.ID, user.Role, req.Platform)
-
-	err = s.Redis.Set(ctx, key, refreshToken, 7*24*time.Hour).Err()
-	if err != nil {
+	if err := s.storeSession(ctx, user.ID, user.Role, req.Platform, jti, accessToken, refreshToken); err != nil {
 		return nil, err
 	}
 
@@ -86,32 +55,167 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 	}, nil
 }
 
+// REFRESH
+func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResponse, error) {
+
+	userID, role, platform, err := s.validateRefreshToken(refreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, _, err := s.generateAccessToken(userID, role, platform)
+	if err != nil {
+		return nil, err
+	}
+
+	newRefreshToken, _, err := s.generateRefreshToken(userID, role, platform)
+	if err != nil {
+		return nil, err
+	}
+
+	// rotate refresh token
+	key := buildRefreshKey(userID, platform)
+	err = s.Redis.Set(ctx, key, newRefreshToken, 7*24*time.Hour).Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return &LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+	}, nil
+}
+
+//
 // ==========================
-// JWT
+// INTERNAL FLOW (PRIVATE)
 // ==========================
-func (s *Service) generateAccessToken(userID int, role string, platform string) (string, error) {
+//
+
+// VALIDASI LOGIN
+func (s *Service) validateLogin(user *UserAuthEntity, password string) error {
+
+	if user.Status != 1 {
+		return errors.New("user inactive")
+	}
+
+	var valid bool
+
+	if user.Password != "" {
+		valid = verifyHash(user.Password, password)
+	}
+
+	if !valid && user.KodePemulihan != "" {
+		if password == user.KodePemulihan {
+			valid = true
+		}
+	}
+
+	if !valid {
+		return errors.New("invalid credentials")
+	}
+
+	return nil
+}
+
+// SIMPAN SESSION
+func (s *Service) storeSession(
+	ctx context.Context,
+	userID int,
+	role string,
+	platform string,
+	jti string,
+	accessToken string,
+	refreshToken string,
+) error {
+
+	ttl := getAccessTTL(platform)
+
+	sessionKey := s.buildSessionKey(userID, role, platform, jti)
+
+	// single device (web & mobile)
+	if platform == "web" || platform == "mobile" {
+		s.Redis.Del(ctx, sessionKey)
+	}
+
+	err := s.Redis.Set(ctx, sessionKey, accessToken, ttl).Err()
+	if err != nil {
+		return err
+	}
+
+	refreshKey := buildRefreshKey(userID, platform)
+	return s.Redis.Set(ctx, refreshKey, refreshToken, 7*24*time.Hour).Err()
+}
+
+// VALIDASI REFRESH TOKEN
+func (s *Service) validateRefreshToken(refreshToken string) (int, string, string, error) {
+
+	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.JWTSecret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return 0, "", "", errors.New("invalid refresh token")
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	if claims["type"] != "refresh" {
+		return 0, "", "", errors.New("invalid token type")
+	}
+
+	userIDStr := claims["sub"].(string)
+	userID, _ := strconv.Atoi(userIDStr)
+
+	role, _ := claims["role"].(string)
+	platform := claims["platform"].(string)
+
+	return userID, role, platform, nil
+}
+
+//
+// ==========================
+// TOKEN (JWT)
+// ==========================
+//
+
+func (s *Service) generateAccessToken(userID int, role string, platform string) (string, string, error) {
+
+	duration := getAccessTTL(platform)
+
+	now := time.Now()
+	jti := uuid.New().String()
+
 	claims := jwt.MapClaims{
 		"sub":      strconv.Itoa(userID),
 		"role":     role,
 		"platform": platform,
 		"iss":      "ukaisyndrome",
 		"aud":      "ukaisyndrome-users",
-		"iat":      time.Now().Unix(),
-		"nbf":      time.Now().Unix(),
-		"exp":      time.Now().Add(90 * time.Minute).Unix(),
-		"jti":      uuid.New().String(),
+		"iat":      now.Unix(),
+		"nbf":      now.Unix(),
+		"exp":      now.Add(duration).Unix(),
+		"jti":      jti,
+		"type":     "access",
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.JWTSecret))
+
+	signed, err := token.SignedString([]byte(s.JWTSecret))
+	if err != nil {
+		return "", "", err
+	}
+
+	return signed, jti, nil
 }
 
-func (s *Service) generateRefreshToken(userID int, platform string) (string, string, error) {
+func (s *Service) generateRefreshToken(userID int, role string, platform string) (string, string, error) {
 
 	jti := uuid.New().String()
 
 	claims := jwt.MapClaims{
 		"sub":      strconv.Itoa(userID),
+		"role":     role,
 		"platform": platform,
 		"iss":      "ukaisyndrome",
 		"aud":      "ukaisyndrome-auth",
@@ -129,78 +233,4 @@ func (s *Service) generateRefreshToken(userID int, platform string) (string, str
 	}
 
 	return signed, jti, nil
-}
-
-// ==========================
-// SESSION KEY
-// ==========================
-func (s *Service) buildSessionKey(userID int, role string, platform string) string {
-	return "session:" + role + ":" + platform + ":" + strconv.Itoa(userID)
-}
-
-// ==========================
-// HASH VERIFICATION
-// ==========================
-func verifyHash(stored string, input string) bool {
-
-	if stored == "" {
-		return false
-	}
-
-	parts := strings.Split(stored, "$")
-	if len(parts) < 3 {
-		return false
-	}
-
-	prefix := parts[0]
-
-	if strings.HasPrefix(prefix, "pbkdf2") {
-		return verifyPBKDF2(stored, input)
-	}
-
-	if strings.HasPrefix(prefix, "scrypt") {
-		return verifyScrypt(stored, input)
-	}
-
-	return false
-}
-
-func verifyPBKDF2(stored string, input string) bool {
-
-	parts := strings.Split(stored, "$")
-	if len(parts) != 3 {
-		return false
-	}
-
-	meta := parts[0]
-	salt := parts[1]
-	hash := parts[2]
-
-	metaParts := strings.Split(meta, ":")
-	iter, _ := strconv.Atoi(metaParts[2])
-
-	// 🔥 INI BAGIAN YANG KITA DEBUG
-	dk := pbkdf2.Key([]byte(input), []byte(salt), iter, 32, sha256.New)
-
-	return hex.EncodeToString(dk) == hash
-}
-
-func verifyScrypt(stored string, input string) bool {
-
-	parts := strings.Split(stored, "$")
-	meta := parts[0]
-	salt := parts[1]
-	hash := parts[2]
-
-	metaParts := strings.Split(meta, ":")
-	N, _ := strconv.Atoi(metaParts[1])
-	r, _ := strconv.Atoi(metaParts[2])
-	p, _ := strconv.Atoi(metaParts[3])
-
-	dk, err := scrypt.Key([]byte(input), []byte(salt), N, r, p, 32)
-	if err != nil {
-		return false
-	}
-
-	return hex.EncodeToString(dk) == hash
 }

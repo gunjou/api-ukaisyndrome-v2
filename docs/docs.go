@@ -42,6 +42,33 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/auth/refresh": {
+            "post": {
+                "description": "Generate new access token using refresh token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Refresh access token",
+                "parameters": [
+                    {
+                        "description": "Refresh Token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.RefreshRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/materi/peserta/{id_modul}": {
             "get": {
                 "security": [
@@ -70,7 +97,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter tipe materi (video|document)",
+                        "description": "Filter tipe materi (video | document)",
                         "name": "type",
                         "in": "query"
                     }
@@ -135,6 +162,14 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "auth.RefreshRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {
@@ -149,7 +184,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "2.0",
-	Host:             "localhost:8080",
+	Host:             "",
 	BasePath:         "/api/v2",
 	Schemes:          []string{},
 	Title:            "UKAI Syndrome API V2",

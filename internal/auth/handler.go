@@ -15,6 +15,7 @@ func RegisterRoutes(r fiber.Router, handler *Handler) {
 	auth := r.Group("/auth")
 
 	auth.Post("/login", handler.Login)
+	auth.Post("/refresh", handler.Refresh)
 }
 
 // Login godoc
@@ -42,6 +43,31 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	}
 
 	_ = time.Since(start) // nanti bisa dipakai logging
+
+	return response.Success(c, res)
+}
+
+
+// Refresh godoc
+// @Summary Refresh access token
+// @Description Generate new access token using refresh token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RefreshRequest true "Refresh Token"
+// @Router /auth/refresh [post]
+func (h *Handler) Refresh(c *fiber.Ctx) error {
+
+	var req RefreshRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, 400, "invalid request", "BAD_REQUEST", nil)
+	}
+
+	res, err := h.Service.Refresh(c.Context(), req.RefreshToken)
+	if err != nil {
+		return response.Error(c, 401, err.Error(), "UNAUTHORIZED", nil)
+	}
 
 	return response.Success(c, res)
 }

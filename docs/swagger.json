@@ -6,7 +6,6 @@
         "contact": {},
         "version": "2.0"
     },
-    "host": "localhost:8080",
     "basePath": "/api/v2",
     "paths": {
         "/auth/login": {
@@ -30,6 +29,33 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/auth.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "Generate new access token using refresh token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Refresh access token",
+                "parameters": [
+                    {
+                        "description": "Refresh Token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.RefreshRequest"
                         }
                     }
                 ],
@@ -64,7 +90,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Filter tipe materi (video|document)",
+                        "description": "Filter tipe materi (video | document)",
                         "name": "type",
                         "in": "query"
                     }
@@ -126,6 +152,14 @@
                     "type": "string"
                 },
                 "platform": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.RefreshRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
                     "type": "string"
                 }
             }

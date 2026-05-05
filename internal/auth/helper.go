@@ -15,6 +15,9 @@ func getAccessTTL(platform string) time.Duration {
     if platform == "mobile" {
         return 8760 * time.Hour // 1 tahun
     }
+    if platform == "web" {
+        return 8760 * time.Hour // 1 tahun
+    }
     return 15 * time.Minute
 }
 

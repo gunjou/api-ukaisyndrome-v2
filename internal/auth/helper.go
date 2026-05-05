@@ -10,9 +10,12 @@ import (
 // ==========================
 func getAccessTTL(platform string) time.Duration {
 	if platform == "dev" {
-		return 3 * time.Hour
-	}
-	return 15 * time.Minute
+        return 3 * time.Hour
+    }
+    if platform == "mobile" {
+        return 8760 * time.Hour // 1 tahun
+    }
+    return 15 * time.Minute
 }
 
 // ==========================

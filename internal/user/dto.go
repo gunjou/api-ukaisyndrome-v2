@@ -18,3 +18,8 @@ type MeResponse struct {
 	Nickname *string    `json:"nickname,omitempty"`
 	Classes  []ClassDTO `json:"classes,omitempty"`
 }
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}

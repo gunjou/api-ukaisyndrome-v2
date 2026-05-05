@@ -38,3 +38,33 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 
 	return response.Success(c, res)
 }
+
+
+// ChangePassword godoc
+// @Summary Change password
+// @Description Change user password (require old password)
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body ChangePasswordRequest true "Change Password"
+// @Router /user/change-password [put]
+func (h *Handler) ChangePassword(c *fiber.Ctx) error {
+
+	userID, ok := c.Locals("sub").(int)
+	if !ok {
+		return response.Error(c, 401, "unauthorized", "UNAUTHORIZED", nil)
+	}
+
+	var req ChangePasswordRequest
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, 400, "invalid request", "BAD_REQUEST", nil)
+	}
+
+	err := h.Service.ChangePassword(c.Context(), userID, req)
+	if err != nil {
+		return response.Error(c, 400, err.Error(), "CHANGE_PASSWORD_FAILED", nil)
+	}
+
+	return response.Success(c, "password updated successfully")
+}

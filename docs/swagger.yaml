@@ -14,6 +14,13 @@ definitions:
       refresh_token:
         type: string
     type: object
+  user.ChangePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    type: object
 info:
   contact: {}
   description: API Documentation
@@ -92,6 +99,26 @@ paths:
       summary: Get modules for a user
       tags:
       - Module
+  /user/change-password:
+    put:
+      consumes:
+      - application/json
+      description: Change user password (require old password)
+      parameters:
+      - description: Change Password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - User
   /user/me:
     get:
       consumes:

@@ -14,14 +14,19 @@ type UserEntity struct {
 	ID       int
 	Name     string
 	Email    string
+	Password string
 	Role     string
 	Nickname *string
 }
 
+
+// ==========================
+// FIND BY ID
+// ==========================
 func (r *Repository) FindByID(ctx context.Context, userID int) (*UserEntity, error) {
 
 	query := `
-		SELECT id_user, nama, email, role, nickname
+		SELECT id_user, nama, email, password, role, nickname
 		FROM users
 		WHERE id_user = $1
 	`
@@ -34,6 +39,7 @@ func (r *Repository) FindByID(ctx context.Context, userID int) (*UserEntity, err
 		&user.ID,
 		&user.Name,
 		&user.Email,
+		&user.Password,
 		&user.Role,
 		&user.Nickname,
 	)
@@ -45,6 +51,10 @@ func (r *Repository) FindByID(ctx context.Context, userID int) (*UserEntity, err
 	return &user, nil
 }
 
+
+// ==========================
+// GET USER CLASSES
+// ==========================
 func (r *Repository) GetUserClasses(ctx context.Context, userID int) ([]ClassDTO, error) {
 
 	query := `
@@ -83,4 +93,20 @@ func (r *Repository) GetUserClasses(ctx context.Context, userID int) ([]ClassDTO
 	}
 
 	return classes, nil
+}
+
+
+// ==========================
+// UPDATE PASSWORD
+// ==========================
+func (r *Repository) UpdatePassword(ctx context.Context, userID int, hashed string) error {
+
+	query := `
+		UPDATE users
+		SET password = $1, updated_at = NOW()
+		WHERE id_user = $2
+	`
+
+	_, err := r.DB.Exec(ctx, query, hashed, userID)
+	return err
 }

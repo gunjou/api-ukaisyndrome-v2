@@ -9,7 +9,7 @@ type Service struct {
 	Repo *Repository
 }
 
-func (s *Service) GetMateriPeserta(ctx context.Context, modulID int, materiType *string) ([]MateriDTO, error) {
+func (s *Service) GetMateriPeserta(ctx context.Context, userID int, modulID int, materiType *string) ([]MateriDTO, error) {
 
 	// optional: validasi type
 	if materiType != nil {
@@ -18,5 +18,5 @@ func (s *Service) GetMateriPeserta(ctx context.Context, modulID int, materiType 
 		}
 	}
 
-	return s.Repo.GetMateriByModul(ctx, modulID, materiType)
+	return s.Repo.GetMateriByModul(ctx, userID, modulID, materiType)
 }

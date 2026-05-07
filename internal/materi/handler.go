@@ -23,6 +23,11 @@ type Handler struct {
 // @Router /materi/peserta/{id_modul} [get]
 func (h *Handler) GetMateriPeserta(c *fiber.Ctx) error {
 
+	userID, ok := c.Locals("sub").(int)
+	if !ok {
+		return response.Error(c, 401, "unauthorized", "UNAUTHORIZED", nil)
+	}
+
 	modulID, err := c.ParamsInt("id_modul")
 	if err != nil {
 		return response.Error(c, 400, "invalid modul id", "BAD_REQUEST", nil)
@@ -36,7 +41,7 @@ func (h *Handler) GetMateriPeserta(c *fiber.Ctx) error {
 		typePtr = &materiType
 	}
 
-	data, err := h.Service.GetMateriPeserta(c.Context(), modulID, typePtr)
+	data, err := h.Service.GetMateriPeserta(c.Context(), userID, modulID, typePtr)
 	if err != nil {
 		return response.Error(c, 500, err.Error(), "INTERNAL_ERROR", nil)
 	}

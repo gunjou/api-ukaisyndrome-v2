@@ -10,25 +10,31 @@ type Repository struct {
 	DB *pgxpool.Pool
 }
 
-func (r *Repository) GetMateriByModul(ctx context.Context, modulID int, materiType *string) ([]MateriDTO, error) {
+func (r *Repository) GetMateriByModul(ctx context.Context, userID int, modulID int, materiType *string) ([]MateriDTO, error) {
 
 	query := `
-		SELECT id_materi, id_modul, tipe_materi, judul, url_file, is_downloadable
-		FROM materi
-		WHERE id_modul = $1
-		AND status = 1
-		AND visibility = 'open'
+		SELECT m.id_materi, m.id_modul, m.tipe_materi, m.judul, m.url_file, m.is_downloadable
+		FROM materi m
+		JOIN modul md ON md.id_modul = m.id_modul
+		JOIN modulkelas mk ON mk.id_modul = md.id_modul
+		JOIN paketkelas pk ON pk.id_paketkelas = mk.id_paketkelas
+		JOIN pesertakelas p ON p.id_paketkelas = pk.id_paketkelas
+		WHERE 
+			m.id_modul = $2
+			AND p.id_user = $1
+			AND m.status = 1
+			AND m.visibility = 'open'
 	`
 
-	args := []interface{}{modulID}
+	args := []interface{}{userID, modulID}
 
 	// 🔥 filter optional
 	if materiType != nil {
-		query += " AND tipe_materi = $2"
+		query += " AND m.tipe_materi = $3"
 		args = append(args, *materiType)
 	}
 
-	query += " ORDER BY created_at ASC"
+	query += " ORDER BY m.created_at ASC"
 
 	rows, err := r.DB.Query(ctx, query, args...)
 	if err != nil {

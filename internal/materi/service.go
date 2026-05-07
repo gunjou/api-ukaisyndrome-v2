@@ -20,3 +20,16 @@ func (s *Service) GetMateriPeserta(ctx context.Context, userID int, modulID int,
 
 	return s.Repo.GetMateriByModul(ctx, userID, modulID, materiType)
 }
+
+
+func (s *Service) GetMateriPrivatePeserta(ctx context.Context, userID int, materiType *string) ([]MateriPrivateDTO, error) {
+
+	// validasi type
+	if materiType != nil {
+		if *materiType != "video" && *materiType != "document" {
+			return nil, errors.New("invalid materi type")
+		}
+	}
+
+	return s.Repo.GetMateriPrivateByUser(ctx, userID, materiType)
+}

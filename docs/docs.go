@@ -69,6 +69,35 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/materi/peserta/private": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get list materi private berdasarkan modul",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Materi"
+                ],
+                "summary": "Get materi private peserta",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter tipe materi (video | document)",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/materi/peserta/{id_modul}": {
             "get": {
                 "security": [

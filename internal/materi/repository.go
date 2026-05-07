@@ -62,3 +62,57 @@ func (r *Repository) GetMateriByModul(ctx context.Context, userID int, modulID i
 
 	return result, nil
 }
+
+
+func (r *Repository) GetMateriPrivateByUser(ctx context.Context, userID int, materiType *string) ([]MateriPrivateDTO, error) {
+
+	query := `
+		SELECT 
+			mp.id_materi_private,
+			mp.tipe_materi,
+			mp.judul,
+			mp.url_file,
+			mp.is_downloadable
+		FROM materi_private mp
+		JOIN mentorship m ON m.id_mentorship = mp.id_mentorship
+		WHERE 
+			m.id_peserta = $1
+			AND mp.status = 1
+			AND mp.visibility = 'open'
+	`
+
+	args := []interface{}{userID}
+
+	// optional filter
+	if materiType != nil {
+		query += " AND mp.tipe_materi = $2"
+		args = append(args, *materiType)
+	}
+
+	query += " ORDER BY mp.created_at ASC"
+
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []MateriPrivateDTO
+
+	for rows.Next() {
+		var m MateriPrivateDTO
+		err := rows.Scan(
+			&m.ID,
+			&m.Type,
+			&m.Title,
+			&m.URL,
+			&m.IsDownloadable,
+		)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, m)
+	}
+
+	return result, nil
+}

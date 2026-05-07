@@ -97,6 +97,47 @@ func (r *Repository) GetUserClasses(ctx context.Context, userID int) ([]ClassDTO
 
 
 // ==========================
+// GET USER MENTORSHIPS
+// ==========================
+func (r *Repository) GetUserMentorships(ctx context.Context, userID int) ([]MentorshipDTO, error) {
+
+	query := `
+		SELECT 
+			m.id_mentorship,
+			m.id_mentor,
+			m.nama_mentorship,
+			u.nama as mentor_name
+		FROM mentorship m
+		JOIN users u ON u.id_user = m.id_mentor
+		WHERE m.id_peserta = $1
+	`
+
+	rows, err := r.DB.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var mentorships []MentorshipDTO
+
+	for rows.Next() {
+		var m MentorshipDTO
+		if err := rows.Scan(
+			&m.ID,
+			&m.MentorID,
+			&m.MentorshipName,
+			&m.MentorName,
+		); err != nil {
+			return nil, err
+		}
+		mentorships = append(mentorships, m)
+	}
+
+	return mentorships, nil
+}
+
+
+// ==========================
 // UPDATE PASSWORD
 // ==========================
 func (r *Repository) UpdatePassword(ctx context.Context, userID int, hashed string) error {

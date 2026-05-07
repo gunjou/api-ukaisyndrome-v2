@@ -10,6 +10,7 @@ type Repository struct {
 	DB *pgxpool.Pool
 }
 
+// batch disini harus diganti apabila ingin handle role lain
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*UserAuthEntity, error) {
 	query := `
 		SELECT u.id_user, u.email, u.password, u.kode_pemulihan, u.role, u.status, b.status as batch_status

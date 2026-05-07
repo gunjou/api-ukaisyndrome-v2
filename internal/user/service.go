@@ -46,7 +46,13 @@ func (s *Service) GetMe(ctx context.Context, userID int, role string) (*MeRespon
 				return nil, err
 			}
 
+			mentorships, err := s.Repo.GetUserMentorships(ctx, userID)
+			if err != nil {
+				return nil, err
+			}
+
 			res.Classes = classes
+			res.Mentorships = mentorships
 			return res, nil
 
 		default:

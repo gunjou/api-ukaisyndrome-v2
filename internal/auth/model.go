@@ -33,4 +33,5 @@ type UserAuthEntity struct {
 	KodePemulihan  string
 	Role           string
 	Status         int
+	BatchStatus    int
 }

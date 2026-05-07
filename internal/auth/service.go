@@ -17,6 +17,14 @@ type Service struct {
 	JWTSecret string
 }
 
+// error definitions
+var (
+	ErrInvalidEmail       = errors.New("INVALID_EMAIL")
+	ErrInvalidCredentials = errors.New("INVALID_CREDENTIALS")
+	ErrUserInactive       = errors.New("USER_INACTIVE")
+	ErrBatchInactive      = errors.New("BATCH_INACTIVE")
+)
+
 //
 // ==========================
 // PUBLIC METHODS (ENTRY POINT)
@@ -28,7 +36,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 
 	user, err := s.Repo.FindByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, err
+		return nil, ErrInvalidEmail
 	}
 
 	if err := s.validateLogin(user, req.Password); err != nil {
@@ -96,9 +104,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginRespo
 func (s *Service) validateLogin(user *UserAuthEntity, password string) error {
 
 	if user.Status != 1 {
-		return errors.New("user inactive")
+		return ErrUserInactive
 	}
-
+	
 	var valid bool
 
 	if user.Password != "" {
@@ -111,8 +119,12 @@ func (s *Service) validateLogin(user *UserAuthEntity, password string) error {
 		}
 	}
 
+	if user.Role == "peserta" && user.BatchStatus != 1 {
+		return ErrBatchInactive
+	}
+
 	if !valid {
-		return errors.New("invalid credentials")
+		return ErrInvalidCredentials
 	}
 
 	return nil

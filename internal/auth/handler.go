@@ -2,6 +2,7 @@ package auth
 
 import (
 	"api-ukaisyndrome-v2/pkg/response"
+	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -39,7 +40,24 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 
 	res, err := h.Service.Login(ctx, req)
 	if err != nil {
-		return response.Error(c, 401, "invalid credentials", "AUTH_INVALID", nil)
+
+		if errors.Is(err, ErrInvalidEmail) {
+			return response.Error(c, 400, "invalid email", "AUTH_INVALID_EMAIL", nil)
+		}
+
+		if errors.Is(err, ErrUserInactive) {
+			return response.Error(c, 403, "user inactive", "AUTH_USER_INACTIVE", nil)
+		}
+
+		if errors.Is(err, ErrInvalidCredentials) {
+			return response.Error(c, 401, "invalid credentials", "AUTH_INVALID_CREDENTIALS", nil)
+		}
+
+		if errors.Is(err, ErrBatchInactive) {
+			return response.Error(c, 403, "batch inactive", "AUTH_BATCH_INACTIVE", nil)
+		}
+
+		return response.Error(c, 500, "internal server error", "INTERNAL_ERROR", nil)
 	}
 
 	_ = time.Since(start) // nanti bisa dipakai logging

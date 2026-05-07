@@ -12,9 +12,11 @@ type Repository struct {
 
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*UserAuthEntity, error) {
 	query := `
-		SELECT id_user, email, password, kode_pemulihan, role, status
-		FROM users
-		WHERE email = $1
+		SELECT u.id_user, u.email, u.password, u.kode_pemulihan, u.role, u.status, b.status as batch_status
+		FROM users u
+		JOIN userbatch ub ON u.id_user = ub.id_user
+		JOIN batch b ON ub.id_batch = b.id_batch
+		WHERE u.email = $1
 	`
 
 	row := r.DB.QueryRow(ctx, query, email)
@@ -27,6 +29,7 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*UserAuthEn
 		&user.KodePemulihan,
 		&user.Role,
 		&user.Status,
+		&user.BatchStatus,
 	)
 	if err != nil {
 		return nil, err

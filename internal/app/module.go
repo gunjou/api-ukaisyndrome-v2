@@ -4,6 +4,7 @@ import (
 	"api-ukaisyndrome-v2/internal/auth"
 	"api-ukaisyndrome-v2/internal/materi"
 	"api-ukaisyndrome-v2/internal/module"
+	"api-ukaisyndrome-v2/internal/tryout"
 	"api-ukaisyndrome-v2/internal/user"
 	"api-ukaisyndrome-v2/pkg/config"
 
@@ -44,4 +45,11 @@ func registerModules(r fiber.Router, db *pgxpool.Pool, rdb *redis.Client, cfg co
 	materiHandler := &materi.Handler{Service: materiService}
 
 	materi.RegisterRoutes(protected, materiHandler)
+
+	// TRYOUT
+	tryoutRepo := &tryout.Repository{DB: db}
+	tryoutService := &tryout.Service{Repo: tryoutRepo}
+	tryoutHandler := &tryout.Handler{Service: tryoutService}
+
+	tryout.RegisterRoutes(protected, tryoutHandler)
 }

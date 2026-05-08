@@ -155,6 +155,223 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/tryout/attempt/{attempt_token}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Ambil semua soal untuk attempt",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get soal tryout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attempt Token",
+                        "name": "attempt_token",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/attempt/{attempt_token}/answers": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Menyimpan jawaban peserta secara berkala",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Autosave jawaban tryout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attempt Token",
+                        "name": "attempt_token",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Answers",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/tryout.SaveAnswerRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/attempt/{attempt_token}/resume": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Melanjutkan attempt yang sedang berjalan",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Resume tryout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attempt Token",
+                        "name": "attempt_token",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/attempt/{attempt_token}/submit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Submit hasil tryout peserta",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Submit tryout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attempt Token",
+                        "name": "attempt_token",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/peserta": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get list tryout berdasarkan kelas peserta",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get tryout peserta",
+                "responses": {}
+            }
+        },
+        "/tryout/report": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get laporan tryout",
+                "responses": {}
+            }
+        },
+        "/tryout/report/{attempt_token}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get pembahasan tryout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attempt Token",
+                        "name": "attempt_token",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/{id_tryout}/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Memulai tryout peserta",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Start tryout",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Tryout",
+                        "name": "id_tryout",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/user/change-password": {
             "put": {
                 "security": [
@@ -229,6 +446,28 @@ const docTemplate = `{
             "properties": {
                 "refresh_token": {
                     "type": "string"
+                }
+            }
+        },
+        "tryout.AnswerPayload": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "ragu": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "tryout.SaveAnswerRequest": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/tryout.AnswerPayload"
+                    }
                 }
             }
         },

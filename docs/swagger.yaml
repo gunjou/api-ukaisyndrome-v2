@@ -14,6 +14,20 @@ definitions:
       refresh_token:
         type: string
     type: object
+  tryout.AnswerPayload:
+    properties:
+      answer:
+        type: string
+      ragu:
+        type: boolean
+    type: object
+  tryout.SaveAnswerRequest:
+    properties:
+      answers:
+        additionalProperties:
+          $ref: '#/definitions/tryout.AnswerPayload'
+        type: object
+    type: object
   user.ChangePasswordRequest:
     properties:
       new_password:
@@ -117,6 +131,142 @@ paths:
       summary: Get modules for a user
       tags:
       - Module
+  /tryout/{id_tryout}/start:
+    post:
+      consumes:
+      - application/json
+      description: Memulai tryout peserta
+      parameters:
+      - description: ID Tryout
+        in: path
+        name: id_tryout
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Start tryout
+      tags:
+      - Tryout
+  /tryout/attempt/{attempt_token}:
+    get:
+      consumes:
+      - application/json
+      description: Ambil semua soal untuk attempt
+      parameters:
+      - description: Attempt Token
+        in: path
+        name: attempt_token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get soal tryout
+      tags:
+      - Tryout
+  /tryout/attempt/{attempt_token}/answers:
+    put:
+      consumes:
+      - application/json
+      description: Menyimpan jawaban peserta secara berkala
+      parameters:
+      - description: Attempt Token
+        in: path
+        name: attempt_token
+        required: true
+        type: string
+      - description: Answers
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/tryout.SaveAnswerRequest'
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Autosave jawaban tryout
+      tags:
+      - Tryout
+  /tryout/attempt/{attempt_token}/resume:
+    get:
+      consumes:
+      - application/json
+      description: Melanjutkan attempt yang sedang berjalan
+      parameters:
+      - description: Attempt Token
+        in: path
+        name: attempt_token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Resume tryout
+      tags:
+      - Tryout
+  /tryout/attempt/{attempt_token}/submit:
+    post:
+      consumes:
+      - application/json
+      description: Submit hasil tryout peserta
+      parameters:
+      - description: Attempt Token
+        in: path
+        name: attempt_token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Submit tryout
+      tags:
+      - Tryout
+  /tryout/peserta:
+    get:
+      consumes:
+      - application/json
+      description: Get list tryout berdasarkan kelas peserta
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get tryout peserta
+      tags:
+      - Tryout
+  /tryout/report:
+    get:
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get laporan tryout
+      tags:
+      - Tryout
+  /tryout/report/{attempt_token}:
+    get:
+      parameters:
+      - description: Attempt Token
+        in: path
+        name: attempt_token
+        required: true
+        type: string
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get pembahasan tryout
+      tags:
+      - Tryout
   /user/change-password:
     put:
       consumes:

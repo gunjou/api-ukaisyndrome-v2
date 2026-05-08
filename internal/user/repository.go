@@ -1,6 +1,7 @@
 package user
 
 import (
+	"api-ukaisyndrome-v2/pkg/timeutil"
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -144,10 +145,12 @@ func (r *Repository) UpdatePassword(ctx context.Context, userID int, hashed stri
 
 	query := `
 		UPDATE users
-		SET password = $1, updated_at = NOW()
+		SET password = $1, updated_at = $3
 		WHERE id_user = $2
 	`
 
-	_, err := r.DB.Exec(ctx, query, hashed, userID)
+	now := timeutil.Now()
+
+	_, err := r.DB.Exec(ctx, query, hashed, userID, now)
 	return err
 }

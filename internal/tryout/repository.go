@@ -3,7 +3,6 @@ package tryout
 import (
 	"api-ukaisyndrome-v2/pkg/timeutil"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"strconv"
 	"time"
@@ -28,17 +27,35 @@ func (r *Repository) GetTryoutByUser(ctx context.Context, userID int) ([]TryoutD
 			t.jumlah_soal,
 			t.durasi,
 			t.max_attempt,
+
+			CASE 
+				WHEN t.max_attempt > 0 
+				THEN t.max_attempt - COUNT(h.id_hasiltryout)
+				ELSE 0
+			END as remaining_attempt,
+
 			t.access_start_at,
 			t.access_end_at
+
 		FROM tryout t
 		JOIN to_paketkelas tp ON tp.id_tryout = t.id_tryout
 		JOIN paketkelas pk ON pk.id_paketkelas = tp.id_paketkelas
 		JOIN pesertakelas p ON p.id_paketkelas = pk.id_paketkelas
+
+		LEFT JOIN hasiltryout h 
+			ON h.id_tryout = t.id_tryout 
+			AND h.id_user = p.id_user
+			AND h.status = 1
+
 		WHERE 
 			p.id_user = $1
 			AND t.status = 1
 			AND tp.status = 1
 			AND t.visibility = 'open'
+
+		GROUP BY 
+			t.id_tryout
+
 		ORDER BY t.created_at DESC
 	`
 
@@ -53,6 +70,7 @@ func (r *Repository) GetTryoutByUser(ctx context.Context, userID int) ([]TryoutD
 	for rows.Next() {
 		var t TryoutDTO
 		var start, end *time.Time
+		var remaining int
 
 		err := rows.Scan(
 			&t.ID,
@@ -60,6 +78,7 @@ func (r *Repository) GetTryoutByUser(ctx context.Context, userID int) ([]TryoutD
 			&t.TotalSoal,
 			&t.Duration,
 			&t.MaxAttempt,
+			&remaining,
 			&start,
 			&end,
 		)
@@ -67,6 +86,7 @@ func (r *Repository) GetTryoutByUser(ctx context.Context, userID int) ([]TryoutD
 			return nil, err
 		}
 
+		t.RemainingAttempt = remaining
 		t.AccessStartAt = start
 		t.AccessEndAt = end
 
@@ -421,7 +441,11 @@ func (r *Repository) GetUserReports(ctx context.Context, userID int) ([]TryoutRe
 			t.id_tryout,
 			t.judul,
 			h.attempt_ke,
-			h.nilai,
+			CASE 
+				WHEN t.jumlah_soal > 0 
+				THEN (h.benar::float / t.jumlah_soal) * 100
+				ELSE 0
+			END as score,
 			h.benar,
 			h.salah,
 			h.kosong,
@@ -446,14 +470,13 @@ func (r *Repository) GetUserReports(ctx context.Context, userID int) ([]TryoutRe
 
 	for rows.Next() {
 		var rDTO TryoutReportDTO
-		var score sql.NullFloat64
 
 		err := rows.Scan(
 			&rDTO.AttemptToken,
 			&rDTO.TryoutID,
 			&rDTO.Title,
 			&rDTO.AttemptKe,
-			&score,
+			&rDTO.Score,
 			&rDTO.Benar,
 			&rDTO.Salah,
 			&rDTO.Kosong,

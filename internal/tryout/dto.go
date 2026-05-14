@@ -8,6 +8,7 @@ type TryoutDTO struct {
 	TotalSoal     int        `json:"total_soal"`
 	Duration      int        `json:"duration"`
 	MaxAttempt    int        `json:"max_attempt"`
+	RemainingAttempt int     `json:"remaining_attempt"`
 	AccessStartAt *time.Time `json:"access_start_at,omitempty"`
 	AccessEndAt   *time.Time `json:"access_end_at,omitempty"`
 	Status        string     `json:"status"` // upcoming | ongoing | ended

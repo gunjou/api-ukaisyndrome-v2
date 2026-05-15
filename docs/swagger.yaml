@@ -77,6 +77,17 @@ paths:
       summary: Refresh access token
       tags:
       - Auth
+  /cdn/ads:
+    get:
+      consumes:
+      - application/json
+      description: Get list ads images and links
+      produces:
+      - application/json
+      responses: {}
+      summary: Get ads
+      tags:
+      - CDN
   /cdn/mentor:
     get:
       consumes:
@@ -86,6 +97,17 @@ paths:
       - application/json
       responses: {}
       summary: Get mentor images
+      tags:
+      - CDN
+  /cdn/modul:
+    get:
+      consumes:
+      - application/json
+      description: Get list modul images from storage
+      produces:
+      - application/json
+      responses: {}
+      summary: Get modul images
       tags:
       - CDN
   /materi/peserta/{id_modul}:

@@ -69,6 +69,22 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/cdn/ads": {
+            "get": {
+                "description": "Get list ads images and links",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CDN"
+                ],
+                "summary": "Get ads",
+                "responses": {}
+            }
+        },
         "/cdn/mentor": {
             "get": {
                 "description": "Get list mentor images from storage",
@@ -82,6 +98,22 @@ const docTemplate = `{
                     "CDN"
                 ],
                 "summary": "Get mentor images",
+                "responses": {}
+            }
+        },
+        "/cdn/modul": {
+            "get": {
+                "description": "Get list modul images from storage",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CDN"
+                ],
+                "summary": "Get modul images",
                 "responses": {}
             }
         },

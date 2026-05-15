@@ -69,6 +69,22 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/cdn/mentor": {
+            "get": {
+                "description": "Get list mentor images from storage",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CDN"
+                ],
+                "summary": "Get mentor images",
+                "responses": {}
+            }
+        },
         "/materi/peserta/private": {
             "get": {
                 "security": [

@@ -77,6 +77,17 @@ paths:
       summary: Refresh access token
       tags:
       - Auth
+  /cdn/mentor:
+    get:
+      consumes:
+      - application/json
+      description: Get list mentor images from storage
+      produces:
+      - application/json
+      responses: {}
+      summary: Get mentor images
+      tags:
+      - CDN
   /materi/peserta/{id_modul}:
     get:
       consumes:

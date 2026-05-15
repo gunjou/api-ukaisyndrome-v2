@@ -2,6 +2,7 @@ package app
 
 import (
 	"api-ukaisyndrome-v2/internal/auth"
+	"api-ukaisyndrome-v2/internal/cdn"
 	"api-ukaisyndrome-v2/internal/materi"
 	"api-ukaisyndrome-v2/internal/module"
 	"api-ukaisyndrome-v2/internal/tryout"
@@ -24,6 +25,12 @@ func registerModules(r fiber.Router, db *pgxpool.Pool, rdb *redis.Client, cfg co
 	}
 	authHandler := &auth.Handler{Service: authService}
 	auth.RegisterRoutes(r, authHandler)
+
+	// CDN
+	cdnHandler := &cdn.Handler{
+		Service: &cdn.Service{},
+	}
+	cdn.RegisterRoutes(r, cdnHandler)
 
 	// PROTECTED GROUP
 	protected := r.Group("", auth.AuthMiddleware(rdb, cfg.JWTSecret))

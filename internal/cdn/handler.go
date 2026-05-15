@@ -65,19 +65,19 @@ func (h *Handler) GetModulImages(c *fiber.Ctx) error {
 }
 
 // =================================================
-// GET ADS
+// GET NEWS
 // =================================================
 
-// GetAds godoc
-// @Summary Get ads
-// @Description Get list ads images and links
+// GetNews godoc
+// @Summary Get news
+// @Description Get list news images and links
 // @Tags CDN
 // @Accept json
 // @Produce json
-// @Router /cdn/ads [get]
-func (h *Handler) GetAds(c *fiber.Ctx) error {
+// @Router /cdn/news [get]
+func (h *Handler) GetNews(c *fiber.Ctx) error {
 
-	data, err := h.Service.GetAds()
+	data, err := h.Service.GetNews()
 	if err != nil {
 		return response.Error(
 			c,

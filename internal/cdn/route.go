@@ -8,5 +8,5 @@ func RegisterRoutes(r fiber.Router, handler *Handler) {
 
 	cdn.Get("/mentor", handler.GetMentorImages)
 	cdn.Get("/modul", handler.GetModulImages)
-	cdn.Get("/ads", handler.GetAds)
+	cdn.Get("/news", handler.GetNews)
 }

@@ -64,33 +64,33 @@ func (s *Service) GetModulImages() ([]ImageDTO, error) {
 // =================================================
 // GET ADS
 // =================================================
-func (s *Service) GetAds() (*AdsDTO, error) {
+func (s *Service) GetNews() (*NewsDTO, error) {
 
-	adsPath := filepath.Join(s.StorageRoot, "ads", "ads.json")
+	newsPath := filepath.Join(s.StorageRoot, "news", "news.json")
 
-	file, err := os.ReadFile(adsPath)
+	file, err := os.ReadFile(newsPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var ads []adsMeta
+	var news []newsMeta
 
-	err = json.Unmarshal(file, &ads)
+	err = json.Unmarshal(file, &news)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, ad := range ads {
+	for _, item := range news {
 
-		if !ad.Active {
+		if !item.Active {
 			continue
 		}
 
-		return &AdsDTO{
-			Image: s.BaseURL + "/ads/" + ad.File,
-			Link:  ad.Link,
+		return &NewsDTO{
+			Image: s.BaseURL + "/news/" + item.File,
+			Link:  item.Link,
 		}, nil
 	}
 
-	return nil, errors.New("no active ads found")
+	return nil, errors.New("no active news found")
 }

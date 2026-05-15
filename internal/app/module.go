@@ -28,7 +28,10 @@ func registerModules(r fiber.Router, db *pgxpool.Pool, rdb *redis.Client, cfg co
 
 	// CDN
 	cdnHandler := &cdn.Handler{
-		Service: &cdn.Service{},
+		Service: &cdn.Service{
+			StorageRoot: cfg.CDNStorageRoot,
+			BaseURL:     cfg.CDNBaseURL,
+		},
 	}
 	cdn.RegisterRoutes(r, cdnHandler)
 

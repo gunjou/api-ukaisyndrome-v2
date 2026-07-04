@@ -1,10 +1,12 @@
 package tryout
 
 import (
+	"api-ukaisyndrome-v2/internal/shared/score"
 	"api-ukaisyndrome-v2/pkg/timeutil"
 	"context"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,9 +17,11 @@ type Repository struct {
 }
 
 
-// =================================================
-// GET TRYOUT BY USER
-// =================================================
+/* ========================================================================== */
+/*                             //SECTION - TRYOUT                             */
+/* ========================================================================== */
+
+//ANCHOR - GET TRYOUT BY USER
 func (r *Repository) GetTryoutByUser(ctx context.Context, userID int) ([]TryoutDTO, error) {
 
 	query := `
@@ -97,9 +101,8 @@ func (r *Repository) GetTryoutByUser(ctx context.Context, userID int) ([]TryoutD
 }
 
 
-// =================================================
-// GET TRYOUT FOR START
-// =================================================
+
+//ANCHOR - GET TRYOUT FOR START
 func (r *Repository) GetTryoutForStart(ctx context.Context, userID int, tryoutID int) (*TryoutDTO, error) {
 
 	query := `
@@ -148,9 +151,7 @@ func (r *Repository) GetTryoutForStart(ctx context.Context, userID int, tryoutID
 	return &t, nil
 }
 
-// =================================================
-// COUNT ATTEMPT
-// =================================================
+//ANCHOR - COUNT ATTEMPT
 func (r *Repository) CountAttempt(ctx context.Context, userID int, tryoutID int) (int, error) {
 
 	query := `
@@ -164,9 +165,7 @@ func (r *Repository) CountAttempt(ctx context.Context, userID int, tryoutID int)
 	return count, err
 }
 
-// =================================================
-// CREATE ATTEMPT
-// =================================================
+//ANCHOR - CREATE ATTEMPT
 func (r *Repository) InsertAttempt(ctx context.Context, userID int, tryoutID int, attemptToken string, attemptKe int) error {
 
 	query := `
@@ -191,9 +190,8 @@ func (r *Repository) InsertAttempt(ctx context.Context, userID int, tryoutID int
 }
 
 
-// =================================================
-// GET ATTEMPT BY TOKEN
-// =================================================
+
+//ANCHOR - GET ATTEMPT BY TOKEN
 func (r *Repository) GetAttempt(ctx context.Context, attemptToken string, userID int) (*AttemptEntity, error) {
 
 	query := `
@@ -227,9 +225,8 @@ func (r *Repository) GetAttempt(ctx context.Context, attemptToken string, userID
 }
 
 
-// =================================================
-// GET SOAL BY TRYOUT
-// =================================================
+
+//ANCHOR - GET SOAL BY TRYOUT
 func (r *Repository) GetSoalByTryout(ctx context.Context, tryoutID int) ([]SoalDTO, error) {
 
 	query := `
@@ -285,10 +282,7 @@ func (r *Repository) GetSoalByTryout(ctx context.Context, tryoutID int) ([]SoalD
 	return result, nil
 }
 
-
-// =================================================
-// SAVE ANSWER (FOR AUTOSAVE)
-// =================================================
+//ANCHOR - SAVE ANSWERS
 func (r *Repository) SaveAnswers(
 	ctx context.Context,
 	attemptToken string,
@@ -319,9 +313,7 @@ func (r *Repository) SaveAnswers(
 }
 
 
-// =================================================
-// GET ANSWER KEY
-// =================================================
+//ANCHOR - GET ANSWER KEY
 func (r *Repository) GetAnswerKey(ctx context.Context, tryoutID int) (map[int]string, error) {
 
 	query := `
@@ -353,9 +345,7 @@ func (r *Repository) GetAnswerKey(ctx context.Context, tryoutID int) (map[int]st
 }
 
 
-// =================================================
-// GET USER ANSWERS
-// =================================================
+//ANCHOR - GET USER ANSWERS
 func (r *Repository) GetUserAnswers(
 	ctx context.Context,
 	attemptToken string,
@@ -385,9 +375,7 @@ func (r *Repository) GetUserAnswers(
 }
 
 
-// =================================================
-// SUBMIT TRYOUT
-// =================================================
+//ANCHOR - SUBMIT TRYOUT
 func (r *Repository) SubmitResult(
 	ctx context.Context,
 	attemptToken string,
@@ -428,11 +416,15 @@ func (r *Repository) SubmitResult(
 
 	return err
 }
+/* ========================== //!SECTION - TRYOUT ========================== */
 
 
-// =================================================
-// GET USER REPORTS
-// =================================================
+
+/* ========================================================================== */
+/*                             //SECTION - REPORT                             */
+/* ========================================================================== */
+
+//ANCHOR - GET USER REPORTS
 func (r *Repository) GetUserReports(ctx context.Context, userID int) ([]TryoutReportDTO, error) {
 
 	query := `
@@ -494,10 +486,7 @@ func (r *Repository) GetUserReports(ctx context.Context, userID int) ([]TryoutRe
 }
 
 
-
-// =================================================
-// GET REVIEW
-// =================================================
+//ANCHOR - GET REVIEW
 func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID int) ([]ReviewDTO, error) {
 
 	query := `
@@ -599,3 +588,1120 @@ func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID 
 
 	return result, nil
 }
+/* =========================== //!SECTION - REPORT ========================== */
+
+
+/* ========================================================================== */
+/*                //SECTION - ENDPOINT LIST LEADERBOARD SECTION               */
+/* ========================================================================== */
+
+//ANCHOR - GET GLOBAL LEADERBOARD
+func (r *Repository) GetGlobalLeaderboard(ctx context.Context, tryoutID int) ([]LeaderboardItem, error) {
+
+	query := `
+		WITH ranked_attempt AS (
+
+			SELECT
+				h.id_user, u.nama, pk.nama_kelas,
+		 		h.attempt_ke, h.nilai, h.benar, h.start_time, h.end_time,
+
+				EXTRACT(EPOCH FROM (h.end_time - h.start_time))::BIGINT AS duration,
+
+				ROW_NUMBER() OVER (
+					PARTITION BY h.id_user
+					ORDER BY
+						h.nilai DESC,
+						h.benar DESC,
+						(h.end_time - h.start_time) ASC,
+						h.end_time ASC
+				) AS rn
+
+			FROM hasiltryout h
+			JOIN users u
+				ON u.id_user = h.id_user
+			JOIN pesertakelas ps
+				ON ps.id_user = h.id_user
+			JOIN paketkelas pk
+				ON pk.id_paketkelas = ps.id_paketkelas
+			WHERE
+				h.id_tryout = $1
+				AND h.status = 1
+				AND h.status_pengerjaan = 'submitted'
+		)
+
+		SELECT
+			id_user, nama, nama_kelas, nilai, attempt_ke, duration
+		FROM ranked_attempt
+		WHERE rn = 1
+		ORDER BY
+			nilai DESC,
+			benar DESC,
+			duration ASC
+	`
+
+	rows, err := r.DB.Query(ctx, query, tryoutID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []LeaderboardItem
+
+	rank := 1
+
+	for rows.Next() {
+
+		var item LeaderboardItem
+
+		err := rows.Scan(
+			&item.UserID,
+			&item.Name,
+			&item.ClassName,
+			&item.Score,
+			&item.Attempt,
+			&item.Duration,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		item.Rank = rank
+		rank++
+
+		result = append(result, item)
+	}
+
+	return result, nil
+}
+
+
+//ANCHOR - GET GLOBAL LEADERBOARD SUMMARY
+func (r *Repository) GetGlobalLeaderboardSummary(ctx context.Context, tryoutID int) (*LeaderboardSummary, error) {
+
+	query := `
+		WITH best_attempt AS (
+
+			SELECT *
+
+			FROM (
+
+				SELECT
+					h.id_user,
+					h.nilai,
+
+					ROW_NUMBER() OVER (
+						PARTITION BY h.id_user
+						ORDER BY
+							h.nilai DESC,
+							h.benar DESC,
+							(h.end_time - h.start_time) ASC
+					) rn
+
+				FROM hasiltryout h
+
+				WHERE
+					h.id_tryout = $1
+					AND h.status = 1
+					AND h.status_pengerjaan = 'submitted'
+
+			) x
+
+			WHERE rn = 1
+		)
+
+		SELECT
+
+			COUNT(*)::INT,
+			COALESCE(AVG(nilai),0),
+			COALESCE(MAX(nilai),0)
+
+		FROM best_attempt
+	`
+
+	var summary LeaderboardSummary
+
+	err := r.DB.QueryRow(ctx, query, tryoutID).Scan(
+		&summary.TotalParticipants,
+		&summary.AverageScore,
+		&summary.HighestScore,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &summary, nil
+}
+
+
+//ANCHOR - GET TOTAL ATTEMPT
+func (r *Repository) GetTotalAttempt(ctx context.Context, tryoutID int) (int, error) {
+
+	query := `
+		SELECT COUNT(*)
+		FROM hasiltryout
+		WHERE
+			id_tryout = $1
+			AND status = 1
+	`
+
+	var total int
+
+	err := r.DB.QueryRow(ctx, query, tryoutID).Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+
+
+//ANCHOR - GET USER CLASS ID
+func (r *Repository) GetUserClassID(ctx context.Context, userID int) (int, error) {
+
+	query := `
+		SELECT id_paketkelas
+		FROM pesertakelas
+		WHERE
+			id_user = $1
+			AND status = 1
+		LIMIT 1
+	`
+
+	var classID int
+
+	err := r.DB.QueryRow(ctx, query, userID).Scan(&classID)
+	if err != nil {
+		return 0, err
+	}
+
+	return classID, nil
+}
+
+
+//ANCHOR - GET CLASS LEADERBOARD
+func (r *Repository) GetClassLeaderboard(
+	ctx context.Context,
+	tryoutID int,
+	classID int,
+) ([]LeaderboardItem, error) {
+
+	query := `
+		WITH ranked_attempt AS (
+
+			SELECT
+				h.id_user,
+				u.nama,
+				pk.nama_kelas,
+
+				h.attempt_ke,
+				h.nilai,
+				h.benar,
+				h.start_time,
+				h.end_time,
+
+				EXTRACT(EPOCH FROM (h.end_time - h.start_time))::BIGINT AS duration,
+
+				ROW_NUMBER() OVER (
+					PARTITION BY h.id_user
+					ORDER BY
+						h.nilai DESC,
+						h.benar DESC,
+						(h.end_time - h.start_time) ASC,
+						h.end_time ASC
+				) AS rn
+
+			FROM hasiltryout h
+
+			JOIN users u
+				ON u.id_user = h.id_user
+
+			JOIN pesertakelas ps
+				ON ps.id_user = h.id_user
+
+			JOIN paketkelas pk
+				ON pk.id_paketkelas = ps.id_paketkelas
+
+			WHERE
+				h.id_tryout = $1
+				AND ps.id_paketkelas = $2
+				AND h.status = 1
+				AND h.status_pengerjaan = 'submitted'
+		)
+
+		SELECT
+			id_user,
+			nama,
+			nama_kelas,
+			nilai,
+			attempt_ke,
+			duration
+
+		FROM ranked_attempt
+
+		WHERE rn = 1
+
+		ORDER BY
+			nilai DESC,
+			benar DESC,
+			duration ASC
+	`
+
+	rows, err := r.DB.Query(ctx, query, tryoutID, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []LeaderboardItem
+
+	rank := 1
+
+	for rows.Next() {
+
+		var item LeaderboardItem
+
+		err := rows.Scan(
+			&item.UserID,
+			&item.Name,
+			&item.ClassName,
+			&item.Score,
+			&item.Attempt,
+			&item.Duration,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		item.Rank = rank
+		rank++
+
+		result = append(result, item)
+	}
+
+	return result, nil
+}
+
+
+//ANCHOR - GET CLASS LEADERBOARD SUMMARY
+func (r *Repository) GetClassLeaderboardSummary(
+	ctx context.Context,
+	tryoutID int,
+	classID int,
+) (*LeaderboardSummary, error) {
+
+	query := `
+		WITH best_attempt AS (
+
+			SELECT *
+
+			FROM (
+
+				SELECT
+					h.id_user,
+					h.nilai,
+
+					ROW_NUMBER() OVER (
+						PARTITION BY h.id_user
+						ORDER BY
+							h.nilai DESC,
+							h.benar DESC,
+							(h.end_time - h.start_time) ASC
+					) rn
+
+				FROM hasiltryout h
+
+				JOIN pesertakelas ps
+					ON ps.id_user = h.id_user
+
+				WHERE
+					h.id_tryout = $1
+					AND ps.id_paketkelas = $2
+					AND h.status = 1
+					AND h.status_pengerjaan = 'submitted'
+
+			) x
+
+			WHERE rn = 1
+		)
+
+		SELECT
+
+			COUNT(*)::INT,
+			COALESCE(AVG(nilai),0),
+			COALESCE(MAX(nilai),0)
+
+		FROM best_attempt
+	`
+
+	var summary LeaderboardSummary
+
+	err := r.DB.QueryRow(ctx, query, tryoutID, classID).Scan(
+		&summary.TotalParticipants,
+		&summary.AverageScore,
+		&summary.HighestScore,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &summary, nil
+}
+
+
+//ANCHOR - GET CLASS TOTAL ATTEMPT
+func (r *Repository) GetClassTotalAttempt(
+	ctx context.Context,
+	tryoutID int,
+	classID int,
+) (int, error) {
+
+	query := `
+		SELECT COUNT(*)
+
+		FROM hasiltryout h
+
+		JOIN pesertakelas ps
+			ON ps.id_user = h.id_user
+
+		WHERE
+			h.id_tryout = $1
+			AND ps.id_paketkelas = $2
+			AND h.status = 1
+	`
+
+	var total int
+
+	err := r.DB.QueryRow(ctx, query, tryoutID, classID).Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+/* ======================== //!SECTION - LEADERBOARD ======================== */
+
+
+
+/* ========================================================================== */
+/*                 //SECTION - ENDPOINT LIST ANALYTICS SECTION                */
+/* ========================================================================== */
+
+// =================================================
+// GET STATISTICS OVERVIEW
+// =================================================
+func (r *Repository) GetStatisticsOverview(
+	ctx context.Context,
+	tryoutID int,
+	classID *int,
+) (*StatisticsOverview, error) {
+
+	query := `
+		SELECT
+
+			COUNT(*)::INT AS total_attempt,
+
+			COUNT(DISTINCT h.id_user)::INT AS total_participants,
+
+			COUNT(*) FILTER (
+				WHERE h.status_pengerjaan = 'submitted'
+			)::INT AS completed,
+
+			COUNT(*) FILTER (
+				WHERE h.status_pengerjaan <> 'submitted'
+			)::INT AS unfinished,
+
+			COALESCE(
+				ROUND(
+					COUNT(*) FILTER (
+						WHERE h.status_pengerjaan = 'submitted'
+					)::numeric
+					/
+					NULLIF(COUNT(*),0)
+					*100,
+					2
+				),
+				0
+			) AS completion_rate,
+
+			COALESCE(
+				ROUND(
+					AVG(
+						EXTRACT(EPOCH FROM (h.end_time-h.start_time))
+					)
+				),
+				0
+			)::BIGINT AS average_duration
+
+		FROM hasiltryout h
+
+		JOIN pesertakelas ps
+			ON ps.id_user = h.id_user
+
+		WHERE
+			h.id_tryout = $1
+			AND h.status = 1
+	`
+
+	args := []interface{}{tryoutID}
+
+	if classID != nil {
+
+		query += " AND ps.id_paketkelas = $2"
+
+		args = append(args, *classID)
+	}
+
+	var result StatisticsOverview
+
+	err := r.DB.QueryRow(ctx, query, args...).Scan(
+		&result.TotalAttempt,
+		&result.TotalParticipants,
+		&result.Completed,
+		&result.Unfinished,
+		&result.CompletionRate,
+		&result.AverageDuration,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// =================================================
+// GET STATISTICS SCORE
+// =================================================
+func (r *Repository) GetStatisticsScore(
+	ctx context.Context,
+	tryoutID int,
+	classID *int,
+) (*StatisticsScore, error) {
+
+	query := `
+		WITH best_attempt AS (
+			SELECT *
+			FROM (
+				SELECT
+					h.id_user,
+					h.nilai,
+					h.benar,
+					h.start_time,
+					h.end_time,
+					ROW_NUMBER() OVER (
+						PARTITION BY h.id_user
+						ORDER BY
+							h.nilai DESC,
+							h.benar DESC,
+							(h.end_time-h.start_time) ASC,
+							h.end_time ASC
+					) rn
+				FROM hasiltryout h
+				JOIN pesertakelas ps
+					ON ps.id_user = h.id_user
+				WHERE
+					h.id_tryout = $1
+					AND h.status = 1
+					AND h.status_pengerjaan='submitted'
+	`
+
+	args := []interface{}{tryoutID}
+
+	if classID != nil {
+
+		query += `
+					AND ps.id_paketkelas = $2
+		`
+
+		args = append(args, *classID)
+	}
+
+	query += `
+			) x
+			WHERE rn=1
+		)
+
+		SELECT
+			COALESCE(MAX(nilai),0),
+			COALESCE(MIN(nilai),0),
+			COALESCE(ROUND(AVG(nilai),2),0),
+			COALESCE(
+				PERCENTILE_CONT(0.5)
+				WITHIN GROUP(
+					ORDER BY nilai
+				),
+				0
+			)
+		FROM best_attempt
+	`
+
+	var result StatisticsScore
+
+	err := r.DB.QueryRow(ctx, query, args...).Scan(
+		&result.Highest,
+		&result.Lowest,
+		&result.Average,
+		&result.Median,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+
+//ANCHOR - GET DISTRIBUTION
+func (r *Repository) GetDistribution(
+	ctx context.Context,
+	tryoutID int,
+	classID *int,
+) ([]DistributionItem, error) {
+
+	query := `
+		WITH best_attempt AS (
+
+			SELECT *
+
+			FROM (
+
+				SELECT
+
+					h.id_user,
+					h.nilai,
+					h.benar,
+					h.start_time,
+					h.end_time,
+
+					ROW_NUMBER() OVER (
+
+						PARTITION BY h.id_user
+
+						ORDER BY
+
+							h.nilai DESC,
+							h.benar DESC,
+							(h.end_time-h.start_time) ASC,
+							h.end_time ASC
+
+					) rn
+
+				FROM hasiltryout h
+
+				JOIN pesertakelas ps
+					ON ps.id_user = h.id_user
+
+				WHERE
+
+					h.id_tryout = $1
+					AND h.status = 1
+					AND h.status_pengerjaan='submitted'
+	`
+
+	args := []interface{}{tryoutID}
+
+	if classID != nil {
+
+		query += `
+			AND ps.id_paketkelas = $2
+		`
+
+		args = append(args, *classID)
+	}
+
+	query += `
+			) x
+			WHERE rn = 1
+		)
+		SELECT nilai
+		FROM best_attempt
+	`
+
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// INIT DISTRIBUTION
+	distribution := score.EmptyDistribution()
+
+	// COUNT DISTRIBUTION
+	for rows.Next() {
+
+		var nilai float64
+
+		if err := rows.Scan(&nilai); err != nil {
+			return nil, err
+		}
+
+		label := score.GetLabel(nilai)
+
+		distribution[label]++
+	}
+
+	// BUILD RESPONSE
+	result := make([]DistributionItem, 0, len(score.Labels()))
+
+	for _, label := range score.Labels() {
+
+		result = append(result, DistributionItem{
+			Range: label,
+			Count: distribution[label],
+		})
+
+	}
+
+	return result, nil
+}
+
+
+//ANCHOR - GET QUESTION LIST
+func (r *Repository) GetQuestionList(
+	ctx context.Context,
+	tryoutID int,
+) ([]QuestionEntity, error) {
+
+	query := `
+		SELECT
+
+			id_soaltryout,
+			nomor_urut,
+			UPPER(jawaban_benar)
+
+		FROM soaltryout
+
+		WHERE
+
+			id_tryout = $1
+			AND status = 1
+
+		ORDER BY nomor_urut
+	`
+
+	rows, err := r.DB.Query(ctx, query, tryoutID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []QuestionEntity
+
+	for rows.Next() {
+
+		var item QuestionEntity
+
+		err := rows.Scan(
+			&item.ID,
+			&item.Number,
+			&item.CorrectAnswer,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, item)
+	}
+
+	return result, nil
+}
+
+//? HELPERS
+func parseBool(v interface{}) bool {
+
+	switch val := v.(type) {
+
+	case bool:
+		return val
+
+	case float64:
+		return val == 1
+
+	case int:
+		return val == 1
+
+	default:
+		return false
+	}
+} 
+
+
+//ANCHOR - GET QUESTION ANSWERS
+func (r *Repository) GetQuestionAnswers(
+	ctx context.Context,
+	tryoutID int,
+	classID *int,
+) ([]QuestionAnswerEntity, int, error) {
+
+	//--------------------------------------------------
+	// Mapping nomor soal -> id_soaltryout
+	//--------------------------------------------------
+
+	questionNumberMap := make(map[int]int)
+
+	mapQuery := `
+		SELECT
+			id_soaltryout,
+			nomor_urut
+		FROM soaltryout
+		WHERE
+			id_tryout=$1
+			AND status=1
+	`
+
+	mapRows, err := r.DB.Query(ctx, mapQuery, tryoutID)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer mapRows.Close()
+
+	for mapRows.Next() {
+
+		var id int
+		var number int
+
+		if err := mapRows.Scan(&id, &number); err != nil {
+			return nil, 0, err
+		}
+
+		questionNumberMap[number] = id
+	}
+
+	//--------------------------------------------------
+	// Load jawaban peserta
+	//--------------------------------------------------
+
+	query := `
+		SELECT
+			h.jawaban_user
+		FROM hasiltryout h
+	`
+
+	args := []interface{}{tryoutID}
+
+	if classID != nil {
+
+		query += `
+			JOIN pesertakelas pk
+				ON pk.id_user = h.id_user
+		`
+	}
+
+	query += `
+		WHERE
+
+			h.id_tryout = $1
+			AND h.status = 1
+			AND h.status_pengerjaan='submitted'
+	`
+
+	if classID != nil {
+
+		query += `
+			AND pk.id_paketkelas=$2
+		`
+
+		args = append(args, *classID)
+	}
+
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var result []QuestionAnswerEntity
+	totalParticipant := 0
+
+	for rows.Next() {
+
+		totalParticipant++
+
+		var raw []byte
+
+		if err := rows.Scan(&raw); err != nil {
+			return nil, 0, err
+		}
+
+		var answers map[string]map[string]interface{}
+
+		if err := json.Unmarshal(raw, &answers); err != nil {
+			return nil, 0, err
+		}
+
+		for key, value := range answers {
+
+			var questionID int
+
+			//----------------------------------------
+			// FORMAT BARU
+			//----------------------------------------
+
+			if id, err := strconv.Atoi(key); err == nil {
+
+				questionID = id
+
+			} else {
+
+				//----------------------------------------
+				// FORMAT LAMA
+				//----------------------------------------
+
+				numberStr := strings.TrimPrefix(key, "soal_")
+
+				number, err := strconv.Atoi(numberStr)
+				if err != nil {
+					continue
+				}
+
+				id, ok := questionNumberMap[number]
+				if !ok {
+					continue
+				}
+
+				questionID = id
+			}
+
+			//----------------------------------------
+			// answer
+			//----------------------------------------
+
+			answer := ""
+
+			if v, ok := value["answer"]; ok {
+
+				if s, ok := v.(string); ok {
+					answer = strings.ToUpper(s)
+				}
+			}
+
+			if answer == "" {
+
+				if v, ok := value["jawaban"]; ok {
+
+					if s, ok := v.(string); ok {
+						answer = strings.ToUpper(s)
+					}
+				}
+			}
+
+			//----------------------------------------
+			// doubt
+			//----------------------------------------
+
+			isDoubt := parseBool(value["ragu"])
+
+			result = append(result, QuestionAnswerEntity{
+				QuestionID: questionID,
+				Answer:     answer,
+				IsDoubt:    isDoubt,
+			})
+		}
+	}
+
+	return result, totalParticipant, nil
+}
+
+//ANCHOR - GET QUESTION DETAIL
+func (r *Repository) GetQuestionDetail(
+	ctx context.Context,
+	questionID int,
+) (*QuestionDetailEntity, error) {
+
+	query := `
+		SELECT
+			id_soaltryout,
+			nomor_urut,
+			UPPER(jawaban_benar)
+		FROM soaltryout
+		WHERE
+			id_soaltryout = $1
+			AND status = 1
+	`
+
+	var result QuestionDetailEntity
+
+	err := r.DB.QueryRow(ctx, query, questionID).Scan(
+		&result.ID,
+		&result.Number,
+		&result.CorrectAnswer,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+
+//ANCHOR - GET QUESTION CHOICES
+func (r *Repository) GetQuestionChoices(
+	ctx context.Context,
+	questionID int,
+	classID *int,
+) ([]QuestionAnswerEntity, int, error) {
+
+	//--------------------------------------------------
+	// Cari tryout & mapping nomor -> id
+	//--------------------------------------------------
+
+	var tryoutID int
+
+	err := r.DB.QueryRow(ctx,
+		`SELECT id_tryout FROM soaltryout WHERE id_soaltryout=$1`,
+		questionID,
+	).Scan(&tryoutID)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	questionNumberMap := make(map[int]int)
+
+	rowsMap, err := r.DB.Query(ctx, `
+		SELECT
+			id_soaltryout,
+			nomor_urut
+		FROM soaltryout
+		WHERE
+			id_tryout=$1
+			AND status=1
+	`, tryoutID)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rowsMap.Close()
+
+	for rowsMap.Next() {
+
+		var id, number int
+
+		if err := rowsMap.Scan(&id, &number); err != nil {
+			return nil, 0, err
+		}
+
+		questionNumberMap[number] = id
+	}
+
+	//--------------------------------------------------
+	// Load seluruh jawaban
+	//--------------------------------------------------
+
+	query := `
+		SELECT
+			h.jawaban_user
+		FROM hasiltryout h
+	`
+
+	args := []interface{}{tryoutID}
+
+	if classID != nil {
+
+		query += `
+		JOIN pesertakelas pk
+			ON pk.id_user = h.id_user
+		`
+	}
+
+	query += `
+		WHERE
+			h.id_tryout=$1
+			AND h.status=1
+			AND h.status_pengerjaan='submitted'
+	`
+
+	if classID != nil {
+
+		query += `
+			AND pk.id_paketkelas=$2
+		`
+
+		args = append(args, *classID)
+	}
+
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var result []QuestionAnswerEntity
+	totalParticipant := 0
+
+	for rows.Next() {
+
+		totalParticipant++
+
+		var raw []byte
+
+		if err := rows.Scan(&raw); err != nil {
+			return nil, 0, err
+		}
+
+		var answers map[string]map[string]interface{}
+
+		if err := json.Unmarshal(raw, &answers); err != nil {
+			return nil, 0, err
+		}
+
+		for key, value := range answers {
+
+			var currentQuestionID int
+
+			// ---------- FORMAT BARU ----------
+			if id, err := strconv.Atoi(key); err == nil {
+
+				currentQuestionID = id
+
+			} else {
+
+				// ---------- FORMAT LAMA ----------
+				numberStr := strings.TrimPrefix(key, "soal_")
+
+				number, err := strconv.Atoi(numberStr)
+				if err != nil {
+					continue
+				}
+
+				id, ok := questionNumberMap[number]
+				if !ok {
+					continue
+				}
+
+				currentQuestionID = id
+			}
+
+			// hanya soal yang diminta
+			if currentQuestionID != questionID {
+				continue
+			}
+
+			answer := ""
+
+			if v, ok := value["answer"].(string); ok {
+				answer = strings.ToUpper(v)
+			}
+
+			if answer == "" {
+
+				if v, ok := value["jawaban"].(string); ok {
+					answer = strings.ToUpper(v)
+				}
+			}
+
+			result = append(result, QuestionAnswerEntity{
+				QuestionID: currentQuestionID,
+				Answer:     answer,
+				IsDoubt:    parseBool(value["ragu"]),
+			})
+		}
+	}
+
+	return result, totalParticipant, nil
+}
+/* ========================= //!SECTION - ANALYTICS ========================= */

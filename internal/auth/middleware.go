@@ -54,22 +54,47 @@ func AuthMiddleware(rdb *redis.Client, jwtSecret string) fiber.Handler {
 			return c.Status(401).JSON(ErrorResponse{Message: "invalid role"})
 		}
 
+		// ==========================================================
+		// ADMIN & MENTOR
+		// Tidak menggunakan Redis, cukup validasi JWT saja
+		// ==========================================================
+		if role == "admin" || role == "mentor" {
+			c.Locals("sub", userID)
+			c.Locals("role", role)
+			return c.Next()
+		}
+
+		// ==========================
+		// PLATFORM
+		// Support JWT Go ("platform")
+		// dan JWT Flask ("device_type")
+		// ==========================
 		platform, _ := claims["platform"].(string)
+		if platform == "" {
+			platform, _ = claims["device_type"].(string)
+		}
+
+		// ==========================
+		// JTI
+		// Support JWT Go ("jti")
+		// dan JWT Flask ("session_id")
+		// ==========================
 		jti, _ := claims["jti"].(string)
+		if jti == "" {
+			jti, _ = claims["session_id"].(string)
+		}
 
 		// ==========================
 		// REDIS KEY
 		// ==========================
 		key := "session:" + role + ":" + platform + ":" + strconv.Itoa(userID)
 
-		if platform == "web" || platform == "mobile" {
-			key = "session:" + role + ":" + platform + ":" + strconv.Itoa(userID)
-		} else {
+		if platform != "web" && platform != "mobile" {
 			key = "session:" + role + ":" + platform + ":" + strconv.Itoa(userID) + ":" + jti
 		}
 
 		// ==========================
-		// VALIDASI TOKEN (INI INTINYA 🔥)
+		// VALIDASI SESSION REDIS
 		// ==========================
 		storedToken, err := rdb.Get(c.Context(), key).Result()
 		if err != nil {
@@ -77,7 +102,9 @@ func AuthMiddleware(rdb *redis.Client, jwtSecret string) fiber.Handler {
 		}
 
 		if storedToken != tokenString {
-			return c.Status(401).JSON(ErrorResponse{Message: "session invalid (another login detected)"})
+			return c.Status(401).JSON(ErrorResponse{
+				Message: "session invalid (another login detected)",
+			})
 		}
 
 		// ==========================

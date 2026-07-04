@@ -19,6 +19,7 @@ dump.rdb
 /tmp/
 *.log
 .DS_Store
+email_tester.csv
 
 # Test binary, built with `go test -c`
 *.test

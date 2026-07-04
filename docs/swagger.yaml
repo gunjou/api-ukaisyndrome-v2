@@ -164,6 +164,98 @@ paths:
       summary: Get modules for a user
       tags:
       - Module
+  /tryout/{id_tryout}/distribution:
+    get:
+      consumes:
+      - application/json
+      description: Distribusi nilai tryout
+      parameters:
+      - description: ID Tryout
+        in: path
+        name: id_tryout
+        required: true
+        type: integer
+      - description: Class ID
+        in: query
+        name: class_id
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get score distribution
+      tags:
+      - Tryout
+  /tryout/{id_tryout}/leaderboard:
+    get:
+      consumes:
+      - application/json
+      description: Leaderboard seluruh peserta berdasarkan tryout
+      parameters:
+      - description: ID Tryout
+        in: path
+        name: id_tryout
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get global leaderboard
+      tags:
+      - Tryout
+  /tryout/{id_tryout}/leaderboard/class:
+    get:
+      consumes:
+      - application/json
+      description: Leaderboard berdasarkan kelas
+      parameters:
+      - description: ID Tryout
+        in: path
+        name: id_tryout
+        required: true
+        type: integer
+      - description: Class ID (Admin & Mentor only)
+        in: query
+        name: class_id
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get class leaderboard
+      tags:
+      - Tryout
+  /tryout/{id_tryout}/questions:
+    get:
+      consumes:
+      - application/json
+      description: Get analysis for each question in a tryout
+      parameters:
+      - description: Tryout ID
+        in: path
+        name: id_tryout
+        required: true
+        type: integer
+      - description: Class ID (optional for admin & mentor)
+        in: query
+        name: class_id
+        type: integer
+      - description: 'Sort: default | hardest | easiest'
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get question analysis
+      tags:
+      - Tryout
   /tryout/{id_tryout}/start:
     post:
       consumes:
@@ -181,6 +273,29 @@ paths:
       security:
       - BearerAuth: []
       summary: Start tryout
+      tags:
+      - Tryout
+  /tryout/{id_tryout}/statistics:
+    get:
+      consumes:
+      - application/json
+      description: Statistik tryout (global / class)
+      parameters:
+      - description: ID Tryout
+        in: path
+        name: id_tryout
+        required: true
+        type: integer
+      - description: Class ID (Admin & Mentor only)
+        in: query
+        name: class_id
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get tryout statistics
       tags:
       - Tryout
   /tryout/attempt/{attempt_token}:
@@ -276,6 +391,29 @@ paths:
       security:
       - BearerAuth: []
       summary: Get tryout peserta
+      tags:
+      - Tryout
+  /tryout/question/{id_soal}/choices:
+    get:
+      consumes:
+      - application/json
+      description: Get answer distribution for a question
+      parameters:
+      - description: Question ID
+        in: path
+        name: id_soal
+        required: true
+        type: integer
+      - description: Class ID (Optional for admin & mentor)
+        in: query
+        name: class_id
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get question choice analysis
       tags:
       - Tryout
   /tryout/report:

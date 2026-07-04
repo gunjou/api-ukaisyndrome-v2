@@ -4,7 +4,10 @@ import (
 	"api-ukaisyndrome-v2/pkg/timeutil"
 	"context"
 	"errors"
+	"math"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,9 +18,11 @@ type Service struct {
 }
 
 
-// =================================================
-// GET TRYOUT BY USER
-// =================================================
+/* ========================================================================== */
+/*                  //SECTION - ENDPOINT LIST TRYOUT SECTION                  */
+/* ========================================================================== */
+
+//ANCHOR - GET TRYOUT BY USER
 func (s *Service) GetTryoutPeserta(ctx context.Context, userID int) ([]TryoutDTO, error) {
 
 	data, err := s.Repo.GetTryoutByUser(ctx, userID)
@@ -54,9 +59,7 @@ func (s *Service) GetTryoutPeserta(ctx context.Context, userID int) ([]TryoutDTO
 }
 
 
-// =================================================
-// GET TRYOUT FOR START
-// =================================================
+//ANCHOR - GET TRYOUT FOR START
 func (s *Service) StartTryout(ctx context.Context, userID int, tryoutID int) (*StartTryoutResponse, error) {
 
 	// 1. validasi akses
@@ -106,9 +109,7 @@ func (s *Service) StartTryout(ctx context.Context, userID int, tryoutID int) (*S
 }
 
 
-// =================================================
-// GET SOAL TRYOUT
-// =================================================
+//ANCHOR - GET SOAL TRYOUT
 func (s *Service) GetSoalTryout(ctx context.Context, userID int, attemptToken string) (*GetSoalResponse, error) {
 
 	// 🔐 VALIDASI ATTEMPT
@@ -147,9 +148,7 @@ func (s *Service) GetSoalTryout(ctx context.Context, userID int, attemptToken st
 }
 
 
-// =================================================
-// SAVE ANSWER (FOR AUTOSAVE)
-// =================================================
+//ANCHOR - SAVE ANSWER (FOR AUTOSAVE)
 func (s *Service) SaveAnswers(
 	ctx context.Context,
 	userID int,
@@ -194,9 +193,7 @@ func (s *Service) SaveAnswers(
 }
 
 
-// =================================================
-// SUBMIT TRYOUT
-// =================================================
+//ANCHOR - SUBMIT TRYOUT
 func (s *Service) SubmitTryout(ctx context.Context, userID int, attemptToken string) (*SubmitResponse, error) {
 
 	// 🔐 VALIDASI ATTEMPT
@@ -274,9 +271,7 @@ func (s *Service) SubmitTryout(ctx context.Context, userID int, attemptToken str
 
 
 
-// =================================================
-// RESUME ATTEMPT
-// =================================================
+//ANCHOR - RESUME ATTEMPT
 func (s *Service) ResumeAttempt(ctx context.Context, userID int, attemptToken string) (*ResumeResponse, error) {
 
 	// 🔐 VALIDASI ATTEMPT
@@ -319,19 +314,542 @@ func (s *Service) ResumeAttempt(ctx context.Context, userID int, attemptToken st
 		Questions:    questions,
 	}, nil
 }
+/* =========================== //!SECTION - TRYOUT ========================== */
 
 
-// =================================================
-// GET TRYOUT REPORTS
-// =================================================
+
+/* ========================================================================== */
+/*                  //SECTION - ENDPOINT LIST REPORT SECTION                  */
+/* ========================================================================== */
+
+//ANCHOR - GET TRYOUT REPORTS
 func (s *Service) GetReports(ctx context.Context, userID int) ([]TryoutReportDTO, error) {
 	return s.Repo.GetUserReports(ctx, userID)
 }
 
-
-// =================================================
-// GET TRYOUT REVIEW
-// =================================================
+//ANCHOR - GET TRYOUT REVIEW
 func (s *Service) GetReview(ctx context.Context, userID int, token string) ([]ReviewDTO, error) {
 	return s.Repo.GetReview(ctx, token, userID)
 }
+/* =========================== //!SECTION - REPORT ========================== */
+
+
+
+
+/* ========================================================================== */
+/*                //SECTION - ENDPOINT LIST LEADERBOARD SECTION               */
+/* ========================================================================== */
+
+//ANCHOR - GET GLOBAL LEADERBOARD
+func (s *Service) GetGlobalLeaderboard(
+	ctx context.Context,
+	userID int,
+	tryoutID int,
+) (*LeaderboardResponse, error) {
+
+	// Summary
+	summary, err := s.Repo.GetGlobalLeaderboardSummary(ctx, tryoutID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Total Attempt
+	totalAttempt, err := s.Repo.GetTotalAttempt(ctx, tryoutID)
+	if err != nil {
+		return nil, err
+	}
+
+	summary.TotalAttempt = totalAttempt
+
+	// Leaderboard
+	leaderboard, err := s.Repo.GetGlobalLeaderboard(ctx, tryoutID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cari ranking & score user login
+	for _, item := range leaderboard {
+
+		if item.UserID == userID {
+
+			summary.MyRank = item.Rank
+			summary.MyScore = item.Score
+
+			break
+		}
+	}
+
+	return &LeaderboardResponse{
+		Summary:     *summary,
+		Leaderboard: leaderboard,
+	}, nil
+}
+
+
+//ANCHOR - GET CLASS LEADERBOARD
+func (s *Service) GetClassLeaderboard(
+	ctx context.Context,
+	userID int,
+	role string,
+	tryoutID int,
+	classID int,
+) (*LeaderboardResponse, error) {
+
+	// Tentukan kelas yang digunakan
+	switch role {
+
+	case "admin", "mentor":
+
+		if classID == 0 {
+			return nil, errors.New("class_id is required")
+		}
+
+	case "peserta":
+
+		var err error
+
+		classID, err = s.Repo.GetUserClassID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+	default:
+		return nil, errors.New("invalid role")
+	}
+
+	// Summary
+	summary, err := s.Repo.GetClassLeaderboardSummary(
+		ctx,
+		tryoutID,
+		classID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Total Attempt
+	totalAttempt, err := s.Repo.GetClassTotalAttempt(
+		ctx,
+		tryoutID,
+		classID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	summary.TotalAttempt = totalAttempt
+
+	// Leaderboard
+	leaderboard, err := s.Repo.GetClassLeaderboard(
+		ctx,
+		tryoutID,
+		classID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// My Rank
+	for _, item := range leaderboard {
+
+		if item.UserID == userID {
+
+			summary.MyRank = item.Rank
+			summary.MyScore = item.Score
+
+			break
+		}
+	}
+
+	return &LeaderboardResponse{
+		Summary:     *summary,
+		Leaderboard: leaderboard,
+	}, nil
+}
+/* ======================== //!SECTION - LEADERBOARD ======================== */
+
+
+
+/* ========================================================================== */
+/*                 //SECTION - ENDPOINT LIST ANALYTICS SECTION                */
+/* ========================================================================== */
+
+// GET STATISTICS
+func (s *Service) GetStatistics(
+	ctx context.Context,
+	userID int,
+	role string,
+	tryoutID int,
+	classID int,
+) (*StatisticsResponse, error) {
+
+	// Tentukan scope
+	var classFilter *int
+
+	switch role {
+
+	case "admin", "mentor":
+
+		// class_id optional
+		if classID != 0 {
+			classFilter = &classID
+		}
+
+	case "peserta":
+
+		userClassID, err := s.Repo.GetUserClassID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		classFilter = &userClassID
+
+	default:
+		return nil, errors.New("invalid role")
+	}
+
+	// Overview
+	overview, err := s.Repo.GetStatisticsOverview(
+		ctx,
+		tryoutID,
+		classFilter,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Score
+	score, err := s.Repo.GetStatisticsScore(
+		ctx,
+		tryoutID,
+		classFilter,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &StatisticsResponse{
+		Overview: *overview,
+		Score:    *score,
+	}, nil
+}
+
+//ANCHOR - GET DISTRIBUTION
+func (s *Service) GetDistribution(
+	ctx context.Context,
+	userID int,
+	role string,
+	tryoutID int,
+	classID int,
+) (*DistributionResponse, error) {
+
+	var classFilter *int
+
+	switch role {
+
+	case "admin", "mentor":
+
+		if classID != 0 {
+			classFilter = &classID
+		}
+
+	case "peserta":
+
+		userClassID, err := s.Repo.GetUserClassID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		classFilter = &userClassID
+
+	default:
+		return nil, errors.New("invalid role")
+	}
+
+	data, err := s.Repo.GetDistribution(
+		ctx,
+		tryoutID,
+		classFilter,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DistributionResponse{
+		Distribution: data,
+	}, nil
+}
+
+
+// =================================================
+// GET QUESTION ANALYSIS
+// =================================================
+func (s *Service) GetQuestionAnalysis(
+	ctx context.Context,
+	userID int,
+	role string,
+	tryoutID int,
+	classID int,
+	sortBy string,
+) ([]QuestionAnalysisDTO, error) {
+
+	//--------------------------------------------------
+	// DETERMINE CLASS FILTER
+	//--------------------------------------------------
+
+	var classFilter *int
+
+	switch role {
+
+	case "admin", "mentor":
+
+		if classID != 0 {
+			classFilter = &classID
+		}
+
+	case "peserta":
+
+		userClassID, err := s.Repo.GetUserClassID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		classFilter = &userClassID
+
+	default:
+		return nil, errors.New("invalid role")
+	}
+
+	//--------------------------------------------------
+	// LOAD DATA
+	//--------------------------------------------------
+
+	questions, err := s.Repo.GetQuestionList(ctx, tryoutID)
+	if err != nil {
+		return nil, err
+	}
+
+	answers, totalParticipant, err := s.Repo.GetQuestionAnswers(
+		ctx,
+		tryoutID,
+		classFilter,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	//--------------------------------------------------
+	// INIT MAP
+	//--------------------------------------------------
+
+	resultMap := make(map[int]*QuestionAnalysisDTO)
+	correctAnswerMap := make(map[int]string)
+
+	for _, q := range questions {
+
+		correctAnswerMap[q.ID] = strings.ToUpper(q.CorrectAnswer)
+
+		resultMap[q.ID] = &QuestionAnalysisDTO{
+			ID:      q.ID,
+			Number:  q.Number,
+			Correct: 0,
+			Wrong:   0,
+			Blank:   totalParticipant,
+			Doubt:   0,
+		}
+	}
+
+	//--------------------------------------------------
+	// PROCESS ANSWERS
+	//--------------------------------------------------
+
+	for _, ans := range answers {
+
+		stat, ok := resultMap[ans.QuestionID]
+		if !ok {
+			continue
+		}
+
+		// Blank hanya berkurang jika ada jawaban
+		if ans.Answer != "" {
+			stat.Blank--
+		}
+
+		if ans.IsDoubt {
+			stat.Doubt++
+		}
+
+		if ans.Answer == "" {
+			continue
+		}
+
+		if ans.Answer == correctAnswerMap[ans.QuestionID] {
+			stat.Correct++
+		} else {
+			stat.Wrong++
+		}
+	}
+
+	//--------------------------------------------------
+	// BUILD RESPONSE
+	//--------------------------------------------------
+
+	result := make([]QuestionAnalysisDTO, 0, len(questions))
+
+	for _, q := range questions {
+
+		stat := resultMap[q.ID]
+
+		if totalParticipant > 0 {
+			stat.CorrectRate = math.Round(
+				(float64(stat.Correct)/float64(totalParticipant))*100,
+			) / 100
+		}
+
+		result = append(result, *stat)
+	}
+
+	//--------------------------------------------------
+	// SORT
+	//--------------------------------------------------
+
+	switch strings.ToLower(sortBy) {
+
+	case "hardest":
+
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].CorrectRate < result[j].CorrectRate
+		})
+
+	case "easiest":
+
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].CorrectRate > result[j].CorrectRate
+		})
+
+	default:
+
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].Number < result[j].Number
+		})
+	}
+
+	return result, nil
+}
+
+
+//ANCHOR - GET QUESTION CHOICE ANALYSIS
+func (s *Service) GetQuestionChoices(
+	ctx context.Context,
+	userID int,
+	role string,
+	questionID int,
+	classID int,
+) (*QuestionChoiceDTO, error) {
+
+	//--------------------------------------------------
+	// DETERMINE CLASS FILTER
+	//--------------------------------------------------
+
+	var classFilter *int
+
+	switch role {
+
+	case "admin", "mentor":
+
+		if classID != 0 {
+			classFilter = &classID
+		}
+
+	case "peserta":
+
+		userClassID, err := s.Repo.GetUserClassID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		classFilter = &userClassID
+
+	default:
+		return nil, errors.New("invalid role")
+	}
+
+	//--------------------------------------------------
+	// LOAD DATA
+	//--------------------------------------------------
+
+	question, err := s.Repo.GetQuestionDetail(ctx, questionID)
+	if err != nil {
+		return nil, err
+	}
+
+	answers, totalParticipant, err := s.Repo.GetQuestionChoices(
+		ctx,
+		questionID,
+		classFilter,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	//--------------------------------------------------
+	// BUILD RESULT
+	//--------------------------------------------------
+
+	result := &QuestionChoiceDTO{
+		ID:               question.ID,
+		Number:           question.Number,
+		CorrectAnswer:    question.CorrectAnswer,
+		TotalParticipant: totalParticipant,
+	}
+
+	//--------------------------------------------------
+	// COUNT ANSWERS
+	//--------------------------------------------------
+
+	for _, ans := range answers {
+
+		if ans.IsDoubt {
+			result.Doubt++
+		}
+
+		switch ans.Answer {
+
+		case "A":
+			result.A++
+			result.TotalAnswer++
+
+		case "B":
+			result.B++
+			result.TotalAnswer++
+
+		case "C":
+			result.C++
+			result.TotalAnswer++
+
+		case "D":
+			result.D++
+			result.TotalAnswer++
+
+		case "E":
+			result.E++
+			result.TotalAnswer++
+
+		default:
+			result.Blank++
+		}
+	}
+
+	//--------------------------------------------------
+	// HANDLE LEGACY DATA
+	//--------------------------------------------------
+
+	// Jika repository tidak mengembalikan blank (karena format lama),
+	// pastikan blank minimal sesuai selisih peserta dan jawaban.
+	if result.Blank == 0 && result.TotalParticipant > result.TotalAnswer {
+		result.Blank = result.TotalParticipant - result.TotalAnswer
+	}
+
+	return result, nil
+}
+/* ========================= //!SECTION - ANALYTICS ========================= */

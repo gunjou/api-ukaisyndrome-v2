@@ -353,6 +353,42 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/tryout/question/{id_soal}/choices": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get answer distribution for a question",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get question choice analysis",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Question ID",
+                        "name": "id_soal",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Class ID (Optional for admin \u0026 mentor)",
+                        "name": "class_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/tryout/report": {
             "get": {
                 "security": [
@@ -390,6 +426,150 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/tryout/{id_tryout}/distribution": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Distribusi nilai tryout",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get score distribution",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Tryout",
+                        "name": "id_tryout",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Class ID",
+                        "name": "class_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/{id_tryout}/leaderboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Leaderboard seluruh peserta berdasarkan tryout",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get global leaderboard",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Tryout",
+                        "name": "id_tryout",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/{id_tryout}/leaderboard/class": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Leaderboard berdasarkan kelas",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get class leaderboard",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Tryout",
+                        "name": "id_tryout",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Class ID (Admin \u0026 Mentor only)",
+                        "name": "class_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/{id_tryout}/questions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get analysis for each question in a tryout",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get question analysis",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Tryout ID",
+                        "name": "id_tryout",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Class ID (optional for admin \u0026 mentor)",
+                        "name": "class_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort: default | hardest | easiest",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/tryout/{id_tryout}/start": {
             "post": {
                 "security": [
@@ -415,6 +595,42 @@ const docTemplate = `{
                         "name": "id_tryout",
                         "in": "path",
                         "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tryout/{id_tryout}/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Statistik tryout (global / class)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get tryout statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Tryout",
+                        "name": "id_tryout",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Class ID (Admin \u0026 Mentor only)",
+                        "name": "class_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {}

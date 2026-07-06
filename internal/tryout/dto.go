@@ -28,8 +28,17 @@ type StartTryoutResponse struct {
 type AttemptEntity struct {
 	TryoutID int
 	StartTime time.Time
+	EndTime   time.Time
 	Duration int
 	Status   string
+}
+
+type OngoingAttemptEntity struct {
+	ID           int
+	AttemptToken string
+	AttemptKe    int
+	StartTime    time.Time
+	EndTime      time.Time
 }
 
 type SoalDTO struct {

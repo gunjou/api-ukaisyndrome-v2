@@ -157,7 +157,7 @@ func (r *Repository) CountAttempt(ctx context.Context, userID int, tryoutID int)
 	query := `
 		SELECT COUNT(*)
 		FROM hasiltryout
-		WHERE id_user = $1 AND id_tryout = $2
+		WHERE id_user = $1 AND id_tryout = $2 AND status = 1
 	`
 
 	var count int
@@ -166,27 +166,102 @@ func (r *Repository) CountAttempt(ctx context.Context, userID int, tryoutID int)
 }
 
 //ANCHOR - CREATE ATTEMPT
-func (r *Repository) InsertAttempt(ctx context.Context, userID int, tryoutID int, attemptToken string, attemptKe int) error {
+func (r *Repository) InsertAttempt(ctx context.Context, userID int, tryoutID int, attemptToken string, attemptKe int, duration int,
+) error {
 
 	query := `
 		INSERT INTO hasiltryout (
-			id_tryout,
-			id_user,
-			attempt_token,
-			attempt_ke,
-			start_time,
-			tanggal_pengerjaan,
-			status_pengerjaan,
-			jawaban_user,
-			status
+			id_tryout, id_user, attempt_token, attempt_ke, start_time, end_time, 
+			tanggal_pengerjaan, status_pengerjaan, jawaban_user, status
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, 'ongoing', '{}'::jsonb, 1)
+		VALUES (
+			$1,
+			$2,
+			$3,
+			$4,
+			$5,
+			$6,
+			$7,
+			'ongoing',
+			'{}'::jsonb,
+			1
+
+		)
 	`
 
 	now := timeutil.Now()
 
-	_, err := r.DB.Exec(ctx, query, tryoutID, userID, attemptToken, attemptKe, now, now)
-	return err
+	endTime := now.Add(time.Duration(duration) * time.Minute)
+
+	_, err := r.DB.Exec(
+		ctx,
+		query,
+		tryoutID,
+		userID,
+		attemptToken,
+		attemptKe,
+		now,
+		endTime,
+		now,
+	)
+
+	return err }
+
+
+//ANCHOR - GET ONGOING ATTEMPTS
+func (r *Repository) GetOngoingAttempts(
+	ctx context.Context,
+	userID int,
+	tryoutID int,
+) ([]OngoingAttemptEntity, error) {
+
+	query := `
+		SELECT
+
+			id_hasiltryout,
+			attempt_token,
+			attempt_ke,
+			start_time,
+			end_time,
+
+		FROM hasiltryout
+
+		WHERE
+
+			id_user = $1
+			AND id_tryout = $2
+			AND status = 1
+			AND status_pengerjaan = 'ongoing'
+
+		ORDER BY attempt_ke ASC
+	`
+
+	rows, err := r.DB.Query(ctx, query, userID, tryoutID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []OngoingAttemptEntity
+
+	for rows.Next() {
+
+		var item OngoingAttemptEntity
+
+		if err := rows.Scan(
+			&item.ID,
+			&item.AttemptToken,
+			&item.AttemptKe,
+			&item.StartTime,
+			&item.EndTime,
+		); err != nil {
+			return nil, err
+		}
+
+		result = append(result, item)
+	}
+
+	return result, nil
 }
 
 
@@ -198,6 +273,7 @@ func (r *Repository) GetAttempt(ctx context.Context, attemptToken string, userID
 		SELECT 
 			h.id_tryout,
 			h.start_time,
+			h.end_time,
 			t.durasi,
 			h.status_pengerjaan
 		FROM hasiltryout h
@@ -412,6 +488,54 @@ func (r *Repository) SubmitResult(
 		now,
 		attemptToken,
 		userID,
+	)
+
+	return err
+}
+
+
+//ANCHOR - UPDATE SUBMITTED ATTEMPT
+func (r *Repository) UpdateSubmittedAttempt(
+	ctx context.Context,
+	id int,
+	nilai float64,
+	benar int,
+	salah int,
+	kosong int,
+	ragu int,
+) error {
+
+	query := `
+		UPDATE hasiltryout
+		SET
+
+			nilai = $1,
+			benar = $2,
+			salah = $3,
+			kosong = $4,
+			ragu_ragu = $5,
+			status_pengerjaan = 'submitted',
+			end_time = $6,
+			updated_at = $7
+
+		WHERE
+
+			id_hasiltryout = $8
+	`
+
+	now := timeutil.Now()
+
+	_, err := r.DB.Exec(
+		ctx,
+		query,
+		nilai,
+		benar,
+		salah,
+		kosong,
+		ragu,
+		now,
+		now,
+		id,
 	)
 
 	return err

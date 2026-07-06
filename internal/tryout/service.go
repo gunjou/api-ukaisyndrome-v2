@@ -59,18 +59,102 @@ func (s *Service) GetTryoutPeserta(ctx context.Context, userID int) ([]TryoutDTO
 }
 
 
-//ANCHOR - GET TRYOUT FOR START
-func (s *Service) StartTryout(ctx context.Context, userID int, tryoutID int) (*StartTryoutResponse, error) {
+//ANCHOR - RESOLVE EXPIRED ATTEMPTS
+func (s *Service) ResolveExpiredAttempts(
+	ctx context.Context,
+	userID int,
+	tryoutID int,
+) error {
 
-	// 1. validasi akses
-	t, err := s.Repo.GetTryoutForStart(ctx, userID, tryoutID)
+	attempts, err := s.Repo.GetOngoingAttempts(
+		ctx,
+		userID,
+		tryoutID,
+	)
+	if err != nil {
+		return err
+	}
+
+	now := timeutil.Now()
+
+	for _, attempt := range attempts {
+
+		if now.Before(attempt.EndTime) {
+			continue
+		}
+
+		nilai, benar, salah, kosong, ragu, err :=
+			s.CalculateAttemptResult(
+				ctx,
+				tryoutID,
+				attempt.AttemptToken,
+				userID,
+			)
+
+		if err != nil {
+			return err
+		}
+
+		err = s.Repo.UpdateSubmittedAttempt(
+			ctx,
+			attempt.ID,
+			nilai,
+			benar,
+			salah,
+			kosong,
+			ragu,
+		)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+
+// =================================================
+// START TRYOUT
+// =================================================
+func (s *Service) StartTryout(
+	ctx context.Context,
+	userID int,
+	tryoutID int,
+) (*StartTryoutResponse, error) {
+
+	//--------------------------------------------------
+	// resolve seluruh attempt yang sudah expired
+	//--------------------------------------------------
+
+	err := s.ResolveExpiredAttempts(
+		ctx,
+		userID,
+		tryoutID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	//--------------------------------------------------
+	// validasi akses
+	//--------------------------------------------------
+
+	t, err := s.Repo.GetTryoutForStart(
+		ctx,
+		userID,
+		tryoutID,
+	)
 	if err != nil {
 		return nil, errors.New("tryout not accessible")
 	}
 
 	now := timeutil.Now()
 
-	// 2. validasi waktu
+	//--------------------------------------------------
+	// validasi waktu
+	//--------------------------------------------------
+
 	if t.AccessStartAt != nil && now.Before(*t.AccessStartAt) {
 		return nil, errors.New("tryout not started")
 	}
@@ -79,8 +163,15 @@ func (s *Service) StartTryout(ctx context.Context, userID int, tryoutID int) (*S
 		return nil, errors.New("tryout expired")
 	}
 
-	// 3. validasi attempt
-	count, err := s.Repo.CountAttempt(ctx, userID, tryoutID)
+	//--------------------------------------------------
+	// validasi attempt
+	//--------------------------------------------------
+
+	count, err := s.Repo.CountAttempt(
+		ctx,
+		userID,
+		tryoutID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -89,12 +180,21 @@ func (s *Service) StartTryout(ctx context.Context, userID int, tryoutID int) (*S
 		return nil, errors.New("max attempt reached")
 	}
 
-	// 4. generate token
+	//--------------------------------------------------
+	// generate attempt
+	//--------------------------------------------------
+
 	attemptToken := uuid.New().String()
 	attemptKe := count + 1
 
-	// 5. insert
-	err = s.Repo.InsertAttempt(ctx, userID, tryoutID, attemptToken, attemptKe)
+	err = s.Repo.InsertAttempt(
+		ctx,
+		userID,
+		tryoutID,
+		attemptToken,
+		attemptKe,
+		t.Duration,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +204,7 @@ func (s *Service) StartTryout(ctx context.Context, userID int, tryoutID int) (*S
 		AttemptKe:    attemptKe,
 		Duration:     t.Duration,
 		TotalSoal:    t.TotalSoal,
-		StartTime:    timeutil.Now().Format(time.RFC3339),
+		StartTime:    now.Format(time.RFC3339),
 	}, nil
 }
 
@@ -193,32 +293,34 @@ func (s *Service) SaveAnswers(
 }
 
 
-//ANCHOR - SUBMIT TRYOUT
-func (s *Service) SubmitTryout(ctx context.Context, userID int, attemptToken string) (*SubmitResponse, error) {
+//ANCHOR - CALCULATE ATTEMPT RESULT
+func (s *Service) CalculateAttemptResult(ctx context.Context, tryoutID int, attemptToken string, userID int,
+) (
+	float64,
+	int,
+	int,
+	int,
+	int,
+	error,
+) {
 
-	// 🔐 VALIDASI ATTEMPT
-	attempt, err := s.Repo.GetAttempt(ctx, attemptToken, userID)
+	// answer key
+	keys, err := s.Repo.GetAnswerKey(ctx, tryoutID)
 	if err != nil {
-		return nil, errors.New("invalid attempt")
+		return 0, 0, 0, 0, 0, err
 	}
 
-	if attempt.Status == "submitted" {
-		return nil, errors.New("already submitted")
-	}
-
-	// 🔑 ambil answer key
-	keys, err := s.Repo.GetAnswerKey(ctx, attempt.TryoutID)
+	// user answer
+	userAnswers, err := s.Repo.GetUserAnswers(
+		ctx,
+		attemptToken,
+		userID,
+	)
 	if err != nil {
-		return nil, err
+		return 0, 0, 0, 0, 0, err
 	}
 
-	// 👤 ambil jawaban user (sudah struct {answer, ragu})
-	userAnswers, err := s.Repo.GetUserAnswers(ctx, attemptToken, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	var benar, salah, kosong, raguRagu int
+	var benar, salah, kosong, ragu int
 
 	for id, correct := range keys {
 
@@ -236,7 +338,7 @@ func (s *Service) SubmitTryout(ctx context.Context, userID int, attemptToken str
 		}
 
 		if ua.Ragu {
-			raguRagu++
+			ragu++
 		}
 	}
 
@@ -244,6 +346,35 @@ func (s *Service) SubmitTryout(ctx context.Context, userID int, attemptToken str
 	nilai := 0.0
 	if total > 0 {
 		nilai = float64(benar) / float64(total) * 100
+	}
+	
+	return nilai, benar, salah, kosong, ragu, nil
+}
+
+
+//ANCHOR - SUBMIT TRYOUT
+func (s *Service) SubmitTryout(ctx context.Context, userID int, attemptToken string) (*SubmitResponse, error) {
+
+	// 🔐 VALIDASI ATTEMPT
+	attempt, err := s.Repo.GetAttempt(ctx, attemptToken, userID)
+	if err != nil {
+		return nil, errors.New("invalid attempt")
+	}
+
+	if attempt.Status == "submitted" {
+		return nil, errors.New("already submitted")
+	}
+
+	nilai, benar, salah, kosong, raguRagu, err :=
+		s.CalculateAttemptResult(
+			ctx,
+			attempt.TryoutID,
+			attemptToken,
+			userID,
+		)
+
+	if err != nil {
+		return nil, err
 	}
 
 	// 🔥 update DB (sudah include ragu)

@@ -79,7 +79,13 @@ func (s *Service) ResolveExpiredAttempts(
 
 	for _, attempt := range attempts {
 
-		if now.Before(attempt.EndTime) {
+		// jika end_time belum ada (data lama), skip dulu
+		if attempt.EndTime == nil {
+			continue
+		}
+
+		// masih aktif
+		if now.Before(*attempt.EndTime) {
 			continue
 		}
 
@@ -104,7 +110,6 @@ func (s *Service) ResolveExpiredAttempts(
 			kosong,
 			ragu,
 		)
-
 		if err != nil {
 			return err
 		}
@@ -347,7 +352,7 @@ func (s *Service) CalculateAttemptResult(ctx context.Context, tryoutID int, atte
 	if total > 0 {
 		nilai = float64(benar) / float64(total) * 100
 	}
-	
+
 	return nilai, benar, salah, kosong, ragu, nil
 }
 

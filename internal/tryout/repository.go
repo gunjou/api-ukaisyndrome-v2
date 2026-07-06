@@ -222,7 +222,7 @@ func (r *Repository) GetOngoingAttempts(
 			attempt_token,
 			attempt_ke,
 			start_time,
-			end_time,
+			end_time
 
 		FROM hasiltryout
 

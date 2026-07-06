@@ -289,6 +289,7 @@ func (r *Repository) GetAttempt(ctx context.Context, attemptToken string, userID
 	err := r.DB.QueryRow(ctx, query, attemptToken, userID).Scan(
 		&a.TryoutID,
 		&a.StartTime,
+		&a.EndTime,
 		&a.Duration,
 		&a.Status,
 	)

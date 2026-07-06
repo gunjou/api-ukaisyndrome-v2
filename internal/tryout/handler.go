@@ -2,6 +2,7 @@ package tryout
 
 import (
 	"api-ukaisyndrome-v2/pkg/response"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -120,9 +121,9 @@ func (h *Handler) SaveAnswers(c *fiber.Ctx) error {
 		return response.Error(c, 400, "invalid request body", "BAD_REQUEST", nil)
 	}
 
-	if len(req.Answers) == 0 {
-		return response.Error(c, 400, "answers cannot be empty", "BAD_REQUEST", nil)
-	}
+	// if len(req.Answers) == 0 {
+	// 	return response.Error(c, 400, "answers cannot be empty", "BAD_REQUEST", nil)
+	// }
 
 	err := h.Service.SaveAnswers(
 		c.Context(),
@@ -130,6 +131,11 @@ func (h *Handler) SaveAnswers(c *fiber.Ctx) error {
 		token,
 		req.Answers,
 	)
+
+	if err != nil {
+		log.Println("SAVE ANSWER ERROR:", err)
+		return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
+	}
 
 	if err != nil {
 		return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)

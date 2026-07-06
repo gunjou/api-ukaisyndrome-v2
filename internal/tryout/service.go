@@ -278,9 +278,9 @@ func (s *Service) SaveAnswers(
 	}
 
 	// 🔥 VALIDASI INPUT
-	if len(answers) == 0 {
-		return errors.New("answers cannot be empty")
-	}
+	// if len(answers) == 0 {
+	// 	return errors.New("answers cannot be empty")
+	// }
 
 	// validasi pilihan + ragu
 	for _, v := range answers {

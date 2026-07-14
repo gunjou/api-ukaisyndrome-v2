@@ -196,6 +196,39 @@ func (h *Handler) ResumeTryout(c *fiber.Ctx) error {
 
 	return response.Success(c, data)
 }
+
+//ANCHOR - GET ONGOING TRYOUT
+// GetOngoingTryout godoc
+// @Summary Get ongoing tryout
+// @Description Mengecek apakah peserta memiliki tryout yang masih ongoing atau sudah expired
+// @Tags Tryout
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Router /tryout/is_ongoing [get]
+func (h *Handler) GetOngoingTryout(c *fiber.Ctx) error {
+
+	userID := c.Locals("sub").(int)
+
+	data, err := h.Service.GetOngoingTryout(
+		c.Context(),
+		userID,
+	)
+	if err != nil {
+		return response.Error(
+			c,
+			500,
+			err.Error(),
+			"INTERNAL_ERROR",
+			nil,
+		)
+	}
+
+	return response.Success(
+		c,
+		data,
+	)
+}
 /* =========================== //!SECTION - TRYOUT ========================== */
 
 

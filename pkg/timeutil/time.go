@@ -25,3 +25,19 @@ func Now() time.Time {
 func NowString() string {
 	return Now().Format(time.RFC3339)
 }
+
+// ==========================
+// NORMALIZE DB TIME (WIB)
+// ==========================
+func NormalizeDBTime(t time.Time) time.Time {
+	return time.Date(
+		t.Year(),
+		t.Month(),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
+		jakartaLocation,
+	)
+}

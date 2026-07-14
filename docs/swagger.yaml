@@ -380,6 +380,20 @@ paths:
       summary: Submit tryout
       tags:
       - Tryout
+  /tryout/is_ongoing:
+    get:
+      consumes:
+      - application/json
+      description: Mengecek apakah peserta memiliki tryout yang masih ongoing atau
+        sudah expired
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get ongoing tryout
+      tags:
+      - Tryout
   /tryout/peserta:
     get:
       consumes:

@@ -541,6 +541,73 @@ func (r *Repository) UpdateSubmittedAttempt(
 
 	return err
 }
+
+
+//ANCHOR - GET ONGOING TRYOUT
+func (r *Repository) GetOngoingTryout(
+	ctx context.Context,
+	userID int,
+) ([]OngoingTryoutEntity, error) {
+
+	query := `
+		SELECT
+
+			id_hasiltryout,
+			id_tryout,
+			attempt_token,
+			start_time,
+			end_time,
+			jawaban_user,
+			status_pengerjaan
+
+		FROM hasiltryout
+
+		WHERE
+
+			id_user = $1
+			AND status = 1
+			AND status_pengerjaan = 'ongoing'
+
+		ORDER BY start_time DESC
+	`
+
+	rows, err := r.DB.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []OngoingTryoutEntity
+
+	for rows.Next() {
+
+		var item OngoingTryoutEntity
+
+		err := rows.Scan(
+			&item.IDHasilTryout,
+			&item.IDTryout,
+			&item.AttemptToken,
+			&item.StartTime,
+			&item.EndTime,
+			&item.JawabanUser,
+			&item.StatusPengerjaan,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// NORMALIZE TIME
+		item.StartTime = timeutil.NormalizeDBTime(item.StartTime)
+		if item.EndTime != nil {
+			t := timeutil.NormalizeDBTime(*item.EndTime)
+			item.EndTime = &t
+		}
+
+		result = append(result, item)
+	}
+
+	return result, nil
+}
 /* ========================== //!SECTION - TRYOUT ========================== */
 
 

@@ -81,6 +81,31 @@ type ResumeResponse struct {
 	Answers		 map[string]AnswerPayload `json:"answers"`
 	Questions    []SoalDTO           	  `json:"questions"`
 }
+
+type OngoingTryoutEntity struct {
+	IDHasilTryout    int
+	IDTryout         int
+	AttemptToken     string
+	StartTime        time.Time
+	EndTime          *time.Time
+	JawabanUser      []byte
+	StatusPengerjaan string
+}
+
+type OngoingTryoutDTO struct {
+	IDHasilTryout    int                    `json:"id_hasiltryout"`
+	IDTryout         int                    `json:"id_tryout"`
+	AttemptToken     string                 `json:"attempt_token"`
+	StartTime        time.Time              `json:"start_time"`
+	EndTime          *time.Time             `json:"end_time"`
+	JawabanUser      map[string]interface{} `json:"jawaban_user"`
+	StatusPengerjaan string                 `json:"status_pengerjaan"`
+}
+
+type OngoingTryoutResponse struct {
+	Ongoing []OngoingTryoutDTO `json:"ongoing"`
+	Expired []OngoingTryoutDTO `json:"expired"`
+}
 /* =========================== //!SECTION - TRYOUT ========================== */
 
 

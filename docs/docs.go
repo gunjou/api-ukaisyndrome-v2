@@ -332,6 +332,27 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/tryout/is_ongoing": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengecek apakah peserta memiliki tryout yang masih ongoing atau sudah expired",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get ongoing tryout",
+                "responses": {}
+            }
+        },
         "/tryout/peserta": {
             "get": {
                 "security": [

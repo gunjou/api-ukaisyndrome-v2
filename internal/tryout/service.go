@@ -3,6 +3,7 @@ package tryout
 import (
 	"api-ukaisyndrome-v2/pkg/timeutil"
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
 	"sort"
@@ -119,9 +120,7 @@ func (s *Service) ResolveExpiredAttempts(
 }
 
 
-// =================================================
-// START TRYOUT
-// =================================================
+//ANCHOR - START TRYOUT
 func (s *Service) StartTryout(
 	ctx context.Context,
 	userID int,
@@ -449,6 +448,69 @@ func (s *Service) ResumeAttempt(ctx context.Context, userID int, attemptToken st
 		Answers:      answers, // <- penting: map[string]AnswerPayload
 		Questions:    questions,
 	}, nil
+}
+
+//ANCHOR - GET ONGOING TRYOUT
+func (s *Service) GetOngoingTryout(
+	ctx context.Context,
+	userID int,
+) (*OngoingTryoutResponse, error) {
+
+	attempts, err := s.Repo.GetOngoingTryout(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	now := timeutil.Now()
+
+	response := &OngoingTryoutResponse{
+		Ongoing: make([]OngoingTryoutDTO, 0),
+		Expired: make([]OngoingTryoutDTO, 0),
+	}
+
+	for _, item := range attempts {
+
+		var answers map[string]interface{}
+
+		if len(item.JawabanUser) > 0 {
+
+			if err := json.Unmarshal(item.JawabanUser, &answers); err != nil {
+				answers = map[string]interface{}{}
+			}
+
+		} else {
+			answers = map[string]interface{}{}
+		}
+
+		dto := OngoingTryoutDTO{
+			IDHasilTryout:    item.IDHasilTryout,
+			IDTryout:         item.IDTryout,
+			AttemptToken:     item.AttemptToken,
+			StartTime:        item.StartTime,
+			EndTime:          item.EndTime,
+			JawabanUser:      answers,
+			StatusPengerjaan: item.StatusPengerjaan,
+		}
+
+		// TANPA END TIME
+		if item.EndTime == nil {
+
+			response.Ongoing = append(response.Ongoing, dto)
+			continue
+		}
+
+		// EXPIRED
+		if now.After(*item.EndTime) {
+
+			response.Expired = append(response.Expired, dto)
+			continue
+		}
+
+		// MASIH BERJALAN
+		response.Ongoing = append(response.Ongoing, dto)
+	}
+
+	return response, nil
 }
 /* =========================== //!SECTION - TRYOUT ========================== */
 

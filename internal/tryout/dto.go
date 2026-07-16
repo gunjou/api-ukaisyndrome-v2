@@ -85,6 +85,7 @@ type ResumeResponse struct {
 type OngoingTryoutEntity struct {
 	IDHasilTryout    int
 	IDTryout         int
+	Title            string
 	AttemptToken     string
 	StartTime        time.Time
 	EndTime          *time.Time
@@ -95,6 +96,7 @@ type OngoingTryoutEntity struct {
 type OngoingTryoutDTO struct {
 	IDHasilTryout    int                    `json:"id_hasiltryout"`
 	IDTryout         int                    `json:"id_tryout"`
+	Title            string                 `json:"title"`
 	AttemptToken     string                 `json:"attempt_token"`
 	StartTime        time.Time              `json:"start_time"`
 	EndTime          *time.Time             `json:"end_time"`

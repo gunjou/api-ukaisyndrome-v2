@@ -485,6 +485,7 @@ func (s *Service) GetOngoingTryout(
 		dto := OngoingTryoutDTO{
 			IDHasilTryout:    item.IDHasilTryout,
 			IDTryout:         item.IDTryout,
+			Title:            item.Title,
 			AttemptToken:     item.AttemptToken,
 			StartTime:        item.StartTime,
 			EndTime:          item.EndTime,

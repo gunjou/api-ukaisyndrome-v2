@@ -551,24 +551,22 @@ func (r *Repository) GetOngoingTryout(
 
 	query := `
 		SELECT
-
-			id_hasiltryout,
-			id_tryout,
-			attempt_token,
-			start_time,
-			end_time,
-			jawaban_user,
-			status_pengerjaan
-
-		FROM hasiltryout
-
+			h.id_hasiltryout,
+			h.id_tryout,
+			t.judul,
+			h.attempt_token,
+			h.start_time,
+			h.end_time,
+			h.jawaban_user,
+			h.status_pengerjaan
+		FROM hasiltryout h
+		JOIN tryout t
+			ON t.id_tryout = h.id_tryout
 		WHERE
-
-			id_user = $1
-			AND status = 1
-			AND status_pengerjaan = 'ongoing'
-
-		ORDER BY start_time DESC
+			h.id_user = $1
+			AND h.status = 1
+			AND h.status_pengerjaan = 'ongoing'
+		ORDER BY h.start_time DESC
 	`
 
 	rows, err := r.DB.Query(ctx, query, userID)
@@ -586,6 +584,7 @@ func (r *Repository) GetOngoingTryout(
 		err := rows.Scan(
 			&item.IDHasilTryout,
 			&item.IDTryout,
+			&item.Title,
 			&item.AttemptToken,
 			&item.StartTime,
 			&item.EndTime,

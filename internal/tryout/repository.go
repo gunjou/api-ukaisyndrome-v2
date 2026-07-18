@@ -699,6 +699,7 @@ func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID 
 			h.attempt_token = $1
 			AND h.id_user = $2
 			AND h.status_pengerjaan = 'submitted'
+			AND s.status = 1
 		ORDER BY s.nomor_urut ASC
 	`
 

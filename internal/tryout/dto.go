@@ -139,6 +139,11 @@ type ReviewDTO struct {
 	Status        string            `json:"status"`
 	IsRagu        bool              `json:"is_ragu"`
 }
+
+type ReviewResponse struct {
+	Title string      `json:"title"`
+	Data  []ReviewDTO `json:"data"`
+}
 /* =========================== //!SECTION - REPORT ========================== */
 
 

@@ -678,10 +678,16 @@ func (r *Repository) GetUserReports(ctx context.Context, userID int) ([]TryoutRe
 
 
 //ANCHOR - GET REVIEW
-func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID int) ([]ReviewDTO, error) {
+func (r *Repository) GetReview(
+	ctx context.Context,
+	attemptToken string,
+	userID int,
+) (string, []ReviewDTO, error) {
 
 	query := `
-		SELECT 
+		SELECT
+			t.id_tryout,
+			t.judul,
 			s.id_soaltryout,
 			s.nomor_urut,
 			s.pertanyaan,
@@ -694,8 +700,11 @@ func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID 
 			s.pembahasan,
 			h.jawaban_user
 		FROM hasiltryout h
-		JOIN soaltryout s ON s.id_tryout = h.id_tryout
-		WHERE 
+		JOIN tryout t
+			ON t.id_tryout = h.id_tryout
+		JOIN soaltryout s
+			ON s.id_tryout = h.id_tryout
+		WHERE
 			h.attempt_token = $1
 			AND h.id_user = $2
 			AND h.status_pengerjaan = 'submitted'
@@ -705,13 +714,22 @@ func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID 
 
 	rows, err := r.DB.Query(ctx, query, attemptToken, userID)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	defer rows.Close()
 
-	var result []ReviewDTO
+	var (
+		title  string
+		result []ReviewDTO
+	)
 
 	for rows.Next() {
+
+		var (
+			idTryout int
+			rowTitle string
+		)
+
 		var rDTO ReviewDTO
 		var a, b, c, d, e string
 		var correct string
@@ -719,16 +737,27 @@ func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID 
 		var jsonData []byte
 
 		err := rows.Scan(
+			&idTryout,
+			&rowTitle,
 			&rDTO.ID,
 			&rDTO.Nomor,
 			&rDTO.Pertanyaan,
-			&a, &b, &c, &d, &e,
+			&a,
+			&b,
+			&c,
+			&d,
+			&e,
 			&correct,
 			&pembahasan,
 			&jsonData,
 		)
 		if err != nil {
-			return nil, err
+			return "", nil, err
+		}
+
+		// simpan title sekali saja
+		if title == "" {
+			title = rowTitle
 		}
 
 		// decode user answers
@@ -738,7 +767,7 @@ func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID 
 		}
 
 		var userAnswers map[string]UserAnswer
-		json.Unmarshal(jsonData, &userAnswers)
+		_ = json.Unmarshal(jsonData, &userAnswers)
 
 		// ambil jawaban user
 		ua, ok := userAnswers[strconv.Itoa(rDTO.ID)]
@@ -778,7 +807,11 @@ func (r *Repository) GetReview(ctx context.Context, attemptToken string, userID 
 		result = append(result, rDTO)
 	}
 
-	return result, nil
+	if err := rows.Err(); err != nil {
+		return "", nil, err
+	}
+
+	return title, result, nil
 }
 /* =========================== //!SECTION - REPORT ========================== */
 

@@ -527,7 +527,7 @@ func (s *Service) GetReports(ctx context.Context, userID int) ([]TryoutReportDTO
 }
 
 //ANCHOR - GET TRYOUT REVIEW
-func (s *Service) GetReview(ctx context.Context, userID int, token string) ([]ReviewDTO, error) {
+func (s *Service) GetReview(ctx context.Context, userID int, token string) (string, []ReviewDTO, error) {
 	return s.Repo.GetReview(ctx, token, userID)
 }
 /* =========================== //!SECTION - REPORT ========================== */

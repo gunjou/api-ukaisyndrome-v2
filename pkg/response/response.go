@@ -11,6 +11,7 @@ type Meta struct {
 	ResponseTimeMs int64  `json:"response_time_us"`
 	Timestamp      string `json:"timestamp"`
 	RequestID      string `json:"request_id,omitempty"`
+	Additional	   map[string]interface{} `json:"additional,omitempty"`
 }
 
 type APIResponse struct {
@@ -57,6 +58,31 @@ func Success(c *fiber.Ctx, data interface{}) error {
 		Message: "OK",
 		Data:    data,
 		Meta:    buildMeta(c, rt),
+	})
+}
+
+// ==========================
+// SUCCESS WITH EXTRA META
+// ==========================
+func SuccessWithAdditional(
+	c *fiber.Ctx,
+	data interface{},
+	additional map[string]interface{},
+) error {
+
+	rt := getResponseTime(c)
+
+	meta := buildMeta(c, rt)
+
+	if additional != nil {
+		meta.Additional = additional
+	}
+
+	return c.JSON(APIResponse{
+		Status:  "success",
+		Message: "OK",
+		Data:    data,
+		Meta:    meta,
 	})
 }
 

@@ -137,10 +137,6 @@ func (h *Handler) SaveAnswers(c *fiber.Ctx) error {
 		return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
 	}
 
-	if err != nil {
-		return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
-	}
-
 	return response.Success(c, "saved")
 }
 
@@ -266,12 +262,29 @@ func (h *Handler) GetReview(c *fiber.Ctx) error {
 	userID := c.Locals("sub").(int)
 	token := c.Params("attempt_token")
 
-	data, err := h.Service.GetReview(c.Context(), userID, token)
+	title, data, err := h.Service.GetReview(
+		c.Context(),
+		userID,
+		token,
+	)
+
 	if err != nil {
-		return response.Error(c, 500, err.Error(), "INTERNAL_ERROR", nil)
+		return response.Error(
+			c,
+			500,
+			err.Error(),
+			"INTERNAL_ERROR",
+			nil,
+		)
 	}
 
-	return response.Success(c, data)
+	return response.SuccessWithAdditional(
+		c,
+		data,
+		map[string]interface{}{
+			"title": title,
+		},
+	)
 }
 /* =========================== //!SECTION - REPORT ========================== */
 

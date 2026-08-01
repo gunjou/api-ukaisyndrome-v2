@@ -523,7 +523,16 @@ func (s *Service) GetOngoingTryout(
 
 //ANCHOR - GET TRYOUT REPORTS
 func (s *Service) GetReports(ctx context.Context, userID int) ([]TryoutReportDTO, error) {
-	return s.Repo.GetUserReports(ctx, userID)
+	reports, err := s.Repo.GetUserReports(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range reports {
+		reports[i].Score = math.Round(reports[i].Score*10) / 10
+	}
+
+	return reports, nil
 }
 
 //ANCHOR - GET TRYOUT REVIEW

@@ -1,5 +1,16 @@
 basePath: /api/v2
 definitions:
+  absensi.CheckInPesertaRequest:
+    properties:
+      id_jadwal:
+        type: integer
+      latitude:
+        type: number
+      location_accuracy:
+        type: number
+      longitude:
+        type: number
+    type: object
   auth.LoginRequest:
     properties:
       email:
@@ -41,6 +52,79 @@ info:
   title: UKAI Syndrome API V2
   version: "2.0"
 paths:
+  /absensi/peserta/me:
+    get:
+      consumes:
+      - application/json
+      description: Get seluruh riwayat absensi peserta yang sedang login
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get absensi peserta
+      tags:
+      - Absensi
+  /absensi/peserta/me/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detail absensi milik peserta yang sedang login
+      parameters:
+      - description: ID Absensi Peserta
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get detail absensi peserta
+      tags:
+      - Absensi
+  /absensi/peserta/me/check-in:
+    post:
+      consumes:
+      - application/json
+      description: Peserta melakukan check-in pada jadwal ketika mentor sedang mengajar
+        dan peserta berada dalam radius lokasi mentor
+      parameters:
+      - description: Data check-in peserta
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/absensi.CheckInPesertaRequest'
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Check-in peserta
+      tags:
+      - Absensi
+  /absensi/peserta/me/jadwal/{id_jadwal}:
+    get:
+      consumes:
+      - application/json
+      description: Mengecek apakah peserta yang sedang login sudah melakukan check-in
+        pada jadwal tertentu
+      parameters:
+      - description: ID Jadwal
+        in: path
+        name: id_jadwal
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get status absensi peserta berdasarkan jadwal
+      tags:
+      - Absensi
   /auth/login:
     post:
       consumes:
@@ -110,6 +194,38 @@ paths:
       summary: Get news
       tags:
       - CDN
+  /jadwal:
+    get:
+      consumes:
+      - application/json
+      description: Get daftar jadwal aktif berdasarkan kelas yang diikuti peserta
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get jadwal peserta
+      tags:
+      - Jadwal
+  /jadwal/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detail jadwal aktif yang berada pada kelas peserta
+      parameters:
+      - description: ID Jadwal
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get detail jadwal peserta
+      tags:
+      - Jadwal
   /materi/peserta/{id_modul}:
     get:
       consumes:

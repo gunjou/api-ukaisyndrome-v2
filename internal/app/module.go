@@ -1,8 +1,10 @@
 package app
 
 import (
+	"api-ukaisyndrome-v2/internal/absensi"
 	"api-ukaisyndrome-v2/internal/auth"
 	"api-ukaisyndrome-v2/internal/cdn"
+	"api-ukaisyndrome-v2/internal/jadwal"
 	"api-ukaisyndrome-v2/internal/materi"
 	"api-ukaisyndrome-v2/internal/module"
 	"api-ukaisyndrome-v2/internal/tryout"
@@ -56,6 +58,20 @@ func registerModules(r fiber.Router, db *pgxpool.Pool, rdb *redis.Client, cfg co
 
 	materi.RegisterRoutes(protected, materiHandler)
 
+	// JADWAL
+	jadwalRepo := &jadwal.Repository{DB: db}
+	jadwalService := &jadwal.Service{Repo: jadwalRepo}
+	jadwalHandler := &jadwal.Handler{Service: jadwalService}
+
+	jadwal.RegisterRoutes(protected, jadwalHandler)
+
+	// ABSENSI
+	absensiRepo := &absensi.Repository{DB: db}
+	absensiService := &absensi.Service{Repo: absensiRepo}
+	absensiHandler := &absensi.Handler{Service: absensiService}
+
+	absensi.RegisterRoutes(protected, absensiHandler)
+	
 	// TRYOUT
 	tryoutRepo := &tryout.Repository{DB: db}
 	tryoutService := &tryout.Service{Repo: tryoutRepo}

@@ -15,6 +15,119 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/absensi/peserta/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get seluruh riwayat absensi peserta yang sedang login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Absensi"
+                ],
+                "summary": "Get absensi peserta",
+                "responses": {}
+            }
+        },
+        "/absensi/peserta/me/check-in": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Peserta melakukan check-in pada jadwal ketika mentor sedang mengajar dan peserta berada dalam radius lokasi mentor",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Absensi"
+                ],
+                "summary": "Check-in peserta",
+                "parameters": [
+                    {
+                        "description": "Data check-in peserta",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/absensi.CheckInPesertaRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/absensi/peserta/me/jadwal/{id_jadwal}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengecek apakah peserta yang sedang login sudah melakukan check-in pada jadwal tertentu",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Absensi"
+                ],
+                "summary": "Get status absensi peserta berdasarkan jadwal",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Jadwal",
+                        "name": "id_jadwal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/absensi/peserta/me/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get detail absensi milik peserta yang sedang login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Absensi"
+                ],
+                "summary": "Get detail absensi peserta",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Absensi Peserta",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/auth/login": {
             "post": {
                 "description": "Login dengan email dan password",
@@ -114,6 +227,57 @@ const docTemplate = `{
                     "CDN"
                 ],
                 "summary": "Get news",
+                "responses": {}
+            }
+        },
+        "/jadwal": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get daftar jadwal aktif berdasarkan kelas yang diikuti peserta",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Jadwal"
+                ],
+                "summary": "Get jadwal peserta",
+                "responses": {}
+            }
+        },
+        "/jadwal/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get detail jadwal aktif yang berada pada kelas peserta",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Jadwal"
+                ],
+                "summary": "Get detail jadwal peserta",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Jadwal",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {}
             }
         },
@@ -712,6 +876,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "absensi.CheckInPesertaRequest": {
+            "type": "object",
+            "properties": {
+                "id_jadwal": {
+                    "type": "integer"
+                },
+                "latitude": {
+                    "type": "number"
+                },
+                "location_accuracy": {
+                    "type": "number"
+                },
+                "longitude": {
+                    "type": "number"
+                }
+            }
+        },
         "auth.LoginRequest": {
             "type": "object",
             "properties": {

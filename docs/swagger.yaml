@@ -65,7 +65,7 @@ paths:
       summary: Get absensi peserta
       tags:
       - Absensi
-  /absensi/peserta/me/{id}:
+  /absensi/peserta/me/{id_absensi}:
     get:
       consumes:
       - application/json

@@ -98,7 +98,7 @@ const docTemplate = `{
                 "responses": {}
             }
         },
-        "/absensi/peserta/me/{id}": {
+        "/absensi/peserta/me/{id_absensi}": {
             "get": {
                 "security": [
                     {

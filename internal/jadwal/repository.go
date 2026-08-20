@@ -14,7 +14,7 @@ func (r *Repository) GetJadwalPeserta(ctx context.Context, userID int) ([]Jadwal
 	query := `
 		SELECT
 			j.id_jadwal, j.id_paketkelas, pk.nama_kelas,
-			j.id_mentor, u.nama AS nama_mentor, u.nickname AS nickname_mentor,
+			j.id_mentor, u.nama AS nama_mentor, u.nickname AS nickname_mentor, j.topik, j.catatan,
 
 			TO_CHAR(j.tanggal, 'YYYY-MM-DD') AS tanggal,
 			TO_CHAR(j.waktu_mulai, 'HH24:MI:SS') AS waktu_mulai,
@@ -60,7 +60,7 @@ func (r *Repository) GetJadwalPeserta(ctx context.Context, userID int) ([]Jadwal
 
 		if err := rows.Scan(
 			&j.IDJadwal, &j.IDPaketKelas, &j.NamaKelas,
-			&j.IDMentor, &j.NamaMentor, &j.NicknameMentor,
+			&j.IDMentor, &j.NamaMentor, &j.NicknameMentor, &j.Topik, &j.Catatan,
 			&j.Tanggal, &j.WaktuMulai, &j.WaktuSelesai,
 			&j.TanggalReschedule, &j.WaktuMulaiReschedule, &j.WaktuSelesaiReschedule,
 			&j.TanggalEfektif, &j.WaktuMulaiEfektif, &j.WaktuSelesaiEfektif,
@@ -80,7 +80,7 @@ func (r *Repository) GetJadwalPesertaByID(ctx context.Context, userID, jadwalID 
 	query := `
 		SELECT
 			j.id_jadwal, j.id_paketkelas, pk.nama_kelas,
-			j.id_mentor, u.nama AS nama_mentor, u.nickname AS nickname_mentor,
+			j.id_mentor, u.nama AS nama_mentor, u.nickname AS nickname_mentor, j.topik, j.catatan,
 
 			TO_CHAR(j.tanggal, 'YYYY-MM-DD') AS tanggal,
 			TO_CHAR(j.waktu_mulai, 'HH24:MI:SS') AS waktu_mulai,
@@ -114,7 +114,7 @@ func (r *Repository) GetJadwalPesertaByID(ctx context.Context, userID, jadwalID 
 
 	err := r.DB.QueryRow(ctx, query, jadwalID, userID).Scan(
 		&j.IDJadwal, &j.IDPaketKelas, &j.NamaKelas,
-		&j.IDMentor, &j.NamaMentor, &j.NicknameMentor,
+		&j.IDMentor, &j.NamaMentor, &j.NicknameMentor, &j.Topik, &j.Catatan,
 		&j.Tanggal, &j.WaktuMulai, &j.WaktuSelesai,
 		&j.TanggalReschedule, &j.WaktuMulaiReschedule, &j.WaktuSelesaiReschedule,
 		&j.TanggalEfektif, &j.WaktuMulaiEfektif, &j.WaktuSelesaiEfektif,

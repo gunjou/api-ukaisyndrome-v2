@@ -44,7 +44,7 @@ func (r *Repository) GetAbsensiByJadwal(
 	query := `
 		SELECT
 			ap.id_absensi_peserta, ap.id_jadwal,
-			j.id_paketkelas, pk.nama_kelas,
+			j.id_paketkelas, pk.nama_kelas, j.topik, j.catatan,
 			ap.id_peserta, u.nama, u.nickname,
 			ap.status_kehadiran,
 			TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS'),
@@ -65,7 +65,7 @@ func (r *Repository) GetAbsensiByJadwal(
 
 	err := r.DB.QueryRow(ctx, query, jadwalID, userID).Scan(
 		&result.IDAbsensiPeserta, &result.IDJadwal,
-		&result.IDPaketKelas, &result.NamaKelas,
+		&result.IDPaketKelas, &result.NamaKelas, &result.Topik, &result.Catatan,
 		&result.IDPeserta, &result.NamaPeserta, &result.NicknamePeserta,
 		&result.StatusKehadiran, &result.CheckInAt,
 		&result.Latitude, &result.Longitude, &result.LocationAccuracy,
@@ -278,7 +278,7 @@ func (r *Repository) GetAbsensiByID(
 	query := `
 		SELECT
 			ap.id_absensi_peserta, ap.id_jadwal,
-			j.id_paketkelas, pk.nama_kelas,
+			j.id_paketkelas, pk.nama_kelas, j.topik, j.catatan,
 			ap.id_peserta, u.nama, u.nickname,
 			ap.status_kehadiran,
 			TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS'),
@@ -301,7 +301,7 @@ func (r *Repository) GetAbsensiByID(
 		ctx, query, absensiID, userID,
 	).Scan(
 		&result.IDAbsensiPeserta, &result.IDJadwal,
-		&result.IDPaketKelas, &result.NamaKelas,
+		&result.IDPaketKelas, &result.NamaKelas, &result.Topik, &result.Catatan,
 		&result.IDPeserta, &result.NamaPeserta, &result.NicknamePeserta,
 		&result.StatusKehadiran, &result.CheckInAt,
 		&result.Latitude, &result.Longitude, &result.LocationAccuracy,
@@ -323,7 +323,7 @@ func (r *Repository) GetAbsensiPeserta(
 	query := `
 		SELECT
 			ap.id_absensi_peserta, ap.id_jadwal,
-			j.id_paketkelas, pk.nama_kelas,
+			j.id_paketkelas, pk.nama_kelas, j.topik, j.catatan,
 			ap.id_peserta, u.nama, u.nickname,
 			ap.status_kehadiran,
 			TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS'),
@@ -353,7 +353,7 @@ func (r *Repository) GetAbsensiPeserta(
 
 		if err := rows.Scan(
 			&a.IDAbsensiPeserta, &a.IDJadwal,
-			&a.IDPaketKelas, &a.NamaKelas,
+			&a.IDPaketKelas, &a.NamaKelas, &a.Topik, &a.Catatan,
 			&a.IDPeserta, &a.NamaPeserta, &a.NicknamePeserta,
 			&a.StatusKehadiran, &a.CheckInAt,
 			&a.Latitude, &a.Longitude, &a.LocationAccuracy,

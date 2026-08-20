@@ -10,6 +10,8 @@ type AbsensiPesertaDTO struct {
 	IDPeserta        int      `json:"id_peserta"`
 	NamaPeserta      string   `json:"nama_peserta"`
 	NicknamePeserta  *string  `json:"nickname_peserta"`
+	Topik            *string  `json:"topik"`
+	Catatan          *string  `json:"catatan"`
 	StatusKehadiran  string   `json:"status_kehadiran"`
 	CheckInAt        string   `json:"check_in_at"`
 	Latitude         *float64 `json:"latitude"`

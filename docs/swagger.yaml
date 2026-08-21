@@ -226,6 +226,25 @@ paths:
       summary: Get detail jadwal peserta
       tags:
       - Jadwal
+  /materi/peserta/{id_materi}/progress:
+    post:
+      consumes:
+      - application/json
+      description: Mencatat bahwa peserta telah membuka materi
+      parameters:
+      - description: ID Materi
+        in: path
+        name: id_materi
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Track akses materi peserta
+      tags:
+      - Materi Progress
   /materi/peserta/{id_modul}:
     get:
       consumes:
@@ -267,6 +286,52 @@ paths:
       summary: Get materi private peserta
       tags:
       - Materi
+  /materi/peserta/progress:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil raw progress materi milik peserta yang sedang login
+      parameters:
+      - default: 1
+        description: Nomor halaman
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Jumlah data per halaman
+        in: query
+        name: limit
+        type: integer
+      - description: Filter berdasarkan ID Modul
+        in: query
+        name: id_modul
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get progress materi peserta
+      tags:
+      - Materi Progress
+  /materi/peserta/progress/monitoring:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil ringkasan progress materi peserta yang sedang login
+      parameters:
+      - description: Filter berdasarkan ID Modul
+        in: query
+        name: id_modul
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get monitoring progress materi peserta
+      tags:
+      - Materi Progress
   /modul/peserta:
     get:
       consumes:

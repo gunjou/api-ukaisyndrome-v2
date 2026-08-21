@@ -310,6 +310,108 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/materi/peserta/progress": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil raw progress materi milik peserta yang sedang login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Materi Progress"
+                ],
+                "summary": "Get progress materi peserta",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Nomor halaman",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Jumlah data per halaman",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter berdasarkan ID Modul",
+                        "name": "id_modul",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/materi/peserta/progress/monitoring": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil ringkasan progress materi peserta yang sedang login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Materi Progress"
+                ],
+                "summary": "Get monitoring progress materi peserta",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter berdasarkan ID Modul",
+                        "name": "id_modul",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/materi/peserta/{id_materi}/progress": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mencatat bahwa peserta telah membuka materi",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Materi Progress"
+                ],
+                "summary": "Track akses materi peserta",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Materi",
+                        "name": "id_materi",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/materi/peserta/{id_modul}": {
             "get": {
                 "security": [

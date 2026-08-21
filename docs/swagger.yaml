@@ -588,6 +588,20 @@ paths:
       summary: Get tryout peserta
       tags:
       - Tryout
+  /tryout/peserta/tunggakan:
+    get:
+      consumes:
+      - application/json
+      description: Mengambil total soal, soal yang sudah dikerjakan, tunggakan, dan
+        breakdown per tryout
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Get tunggakan soal tryout peserta
+      tags:
+      - Tryout
   /tryout/question/{id_soal}/choices:
     get:
       consumes:

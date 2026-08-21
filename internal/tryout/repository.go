@@ -1930,3 +1930,121 @@ func (r *Repository) GetQuestionChoices(
 	return result, totalParticipant, nil
 }
 /* ========================= //!SECTION - ANALYTICS ========================= */
+
+
+/* ========================================================================== */
+/*                           //SECTION - TUNGGAKAN                            */
+/* ========================================================================== */
+
+//ANCHOR - GET TUNGGAKAN BY USER
+func (r *Repository) GetTunggakanByUser(
+	ctx context.Context,
+	userID int,
+) ([]TunggakanTryoutDTO, error) {
+
+	query := `
+		WITH user_tryouts AS (
+			SELECT DISTINCT
+				t.id_tryout,
+				t.judul,
+				t.jumlah_soal
+			FROM tryout t
+			JOIN to_paketkelas tp
+				ON tp.id_tryout = t.id_tryout
+			JOIN pesertakelas p
+				ON p.id_paketkelas = tp.id_paketkelas
+			WHERE
+				p.id_user = $1
+				AND p.status = 1
+				AND tp.status = 1
+				AND t.status = 1
+				AND t.visibility = 'open'
+		),
+
+		answered_questions AS (
+			SELECT
+				h.id_tryout,
+				COUNT(DISTINCT question_id) AS soal_dikerjakan
+			FROM hasiltryout h
+			CROSS JOIN LATERAL jsonb_object_keys(
+				COALESCE(h.jawaban_user, '{}'::jsonb)
+			) AS question_id
+			WHERE
+				h.id_user = $1
+				AND h.status = 1
+				AND EXISTS (
+					SELECT 1
+					FROM user_tryouts ut
+					WHERE ut.id_tryout = h.id_tryout
+				)
+				AND NULLIF(
+					h.jawaban_user -> question_id ->> 'answer',
+					''
+				) IS NOT NULL
+			GROUP BY h.id_tryout
+		)
+
+		SELECT
+			ut.id_tryout,
+			ut.judul,
+			ut.jumlah_soal,
+			COALESCE(aq.soal_dikerjakan, 0) AS soal_dikerjakan
+		FROM user_tryouts ut
+		LEFT JOIN answered_questions aq
+			ON aq.id_tryout = ut.id_tryout
+		ORDER BY ut.id_tryout ASC
+	`
+
+	rows, err := r.DB.Query(
+		ctx,
+		query,
+		userID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	result := make([]TunggakanTryoutDTO, 0)
+
+	for rows.Next() {
+
+		var item TunggakanTryoutDTO
+
+		err := rows.Scan(
+			&item.IDTryout,
+			&item.Title,
+			&item.TotalSoal,
+			&item.SoalDikerjakan,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		item.Tunggakan =
+			item.TotalSoal - item.SoalDikerjakan
+
+		if item.Tunggakan < 0 {
+			item.Tunggakan = 0
+		}
+
+		if item.TotalSoal > 0 {
+			item.ProgressPercentage =
+				(float64(item.SoalDikerjakan) /
+					float64(item.TotalSoal)) * 100
+		}
+
+		result = append(result, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+/* ========================== //!SECTION - TUNGGAKAN ========================== */

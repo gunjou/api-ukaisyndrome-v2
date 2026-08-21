@@ -1061,3 +1061,56 @@ func (s *Service) GetQuestionChoices(
 	return result, nil
 }
 /* ========================= //!SECTION - ANALYTICS ========================= */
+
+
+/* ========================================================================== */
+/*                           //SECTION - TUNGGAKAN                            */
+/* ========================================================================== */
+
+//ANCHOR - GET TUNGGAKAN PESERTA
+func (s *Service) GetTunggakanPeserta(
+	ctx context.Context,
+	userID int,
+) (*TunggakanResponse, error) {
+
+	if userID <= 0 {
+		return nil, errors.New("invalid user id")
+	}
+
+	tryouts, err := s.Repo.GetTunggakanByUser(
+		ctx,
+		userID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	summary := TunggakanSummaryDTO{}
+
+	for _, item := range tryouts {
+
+		summary.TotalTryout++
+
+		summary.TotalSoal += item.TotalSoal
+
+		summary.SoalDikerjakan +=
+			item.SoalDikerjakan
+
+		summary.Tunggakan +=
+			item.Tunggakan
+	}
+
+	if summary.TotalSoal > 0 {
+		summary.ProgressPercentage =
+			(float64(summary.SoalDikerjakan) /
+				float64(summary.TotalSoal)) * 100
+	}
+
+	return &TunggakanResponse{
+		Summary: summary,
+		Tryouts: tryouts,
+	}, nil
+}
+
+/* ========================== //!SECTION - TUNGGAKAN ========================== */

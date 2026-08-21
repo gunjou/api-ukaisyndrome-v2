@@ -640,6 +640,27 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/tryout/peserta/tunggakan": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengambil total soal, soal yang sudah dikerjakan, tunggakan, dan breakdown per tryout",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tryout"
+                ],
+                "summary": "Get tunggakan soal tryout peserta",
+                "responses": {}
+            }
+        },
         "/tryout/question/{id_soal}/choices": {
             "get": {
                 "security": [

@@ -590,3 +590,50 @@ func (h *Handler) GetQuestionChoices(c *fiber.Ctx) error {
 	return response.Success(c, data)
 }
 /* ========================= //!SECTION - ANALYTICS ========================= */
+
+
+/* ========================================================================== */
+/*                           //SECTION - TUNGGAKAN                            */
+/* ========================================================================== */
+
+//ANCHOR - GET TUNGGAKAN PESERTA
+// GetTunggakanPeserta godoc
+// @Summary Get tunggakan soal tryout peserta
+// @Description Mengambil total soal, soal yang sudah dikerjakan, tunggakan, dan breakdown per tryout
+// @Tags Tryout
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Router /tryout/peserta/tunggakan [get]
+func (h *Handler) GetTunggakanPeserta(c *fiber.Ctx) error {
+
+	userID, ok := c.Locals("sub").(int)
+	if !ok {
+		return response.Error(
+			c,
+			401,
+			"unauthorized",
+			"UNAUTHORIZED",
+			nil,
+		)
+	}
+
+	data, err := h.Service.GetTunggakanPeserta(
+		c.Context(),
+		userID,
+	)
+
+	if err != nil {
+		return response.Error(
+			c,
+			500,
+			err.Error(),
+			"INTERNAL_ERROR",
+			nil,
+		)
+	}
+
+	return response.Success(c, data)
+}
+
+/* ========================== //!SECTION - TUNGGAKAN ========================== */

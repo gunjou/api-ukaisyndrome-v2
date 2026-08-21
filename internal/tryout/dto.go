@@ -281,3 +281,32 @@ type QuestionDetailEntity struct {
 	CorrectAnswer string
 }
 /* ======================== //!SECTION - ANALYTICS ======================== */
+
+
+/* ========================================================================== */
+/*                //SECTION - ENDPOINT LIST TUNGGAKAN SECTION                */
+/* ========================================================================== */
+
+type TunggakanSummaryDTO struct {
+	TotalTryout       int     `json:"total_tryout"`
+	TotalSoal         int     `json:"total_soal"`
+	SoalDikerjakan    int     `json:"soal_dikerjakan"`
+	Tunggakan         int     `json:"tunggakan"`
+	ProgressPercentage float64 `json:"progress_percentage"`
+}
+
+type TunggakanTryoutDTO struct {
+	IDTryout          int     `json:"id_tryout"`
+	Title             string  `json:"title"`
+	TotalSoal         int     `json:"total_soal"`
+	SoalDikerjakan    int     `json:"soal_dikerjakan"`
+	Tunggakan         int     `json:"tunggakan"`
+	ProgressPercentage float64 `json:"progress_percentage"`
+}
+
+type TunggakanResponse struct {
+	Summary  TunggakanSummaryDTO  `json:"summary"`
+	Tryouts  []TunggakanTryoutDTO `json:"tryouts"`
+}
+
+/* ======================== //!SECTION - TUNGGAKAN ========================== */

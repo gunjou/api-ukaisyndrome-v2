@@ -73,7 +73,7 @@ paths:
       parameters:
       - description: ID Absensi Peserta
         in: path
-        name: id
+        name: id_absensi
         required: true
         type: integer
       produces:

@@ -8,6 +8,6 @@ func RegisterRoutes(r fiber.Router, handler *Handler) {
 
 	absensi.Post("/check-in", handler.CheckInPeserta)
 	absensi.Get("", handler.GetAbsensiPeserta)
-	absensi.Get("/:id_absensi", handler.GetAbsensiPesertaByID)
 	absensi.Get("/jadwal/:id_jadwal", handler.GetAbsensiStatusByJadwal)
+	absensi.Get("/:id_absensi", handler.GetAbsensiPesertaByID)
 }

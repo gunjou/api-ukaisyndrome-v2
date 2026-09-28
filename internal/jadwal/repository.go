@@ -13,8 +13,16 @@ type Repository struct {
 func (r *Repository) GetJadwalPeserta(ctx context.Context, userID int) ([]JadwalDTO, error) {
 	query := `
 		SELECT
-			j.id_jadwal, j.id_paketkelas, pk.nama_kelas,
-			j.id_mentor, u.nama AS nama_mentor, u.nickname AS nickname_mentor, j.topik, j.catatan,
+			j.id_jadwal,
+			j.id_paketkelas,
+			pk.nama_kelas,
+
+			j.id_mentor,
+			u.nama AS nama_mentor,
+			u.nickname AS nickname_mentor,
+
+			j.topik,
+			j.catatan,
 
 			TO_CHAR(j.tanggal, 'YYYY-MM-DD') AS tanggal,
 			TO_CHAR(j.waktu_mulai, 'HH24:MI:SS') AS waktu_mulai,
@@ -24,23 +32,50 @@ func (r *Repository) GetJadwalPeserta(ctx context.Context, userID int) ([]Jadwal
 			TO_CHAR(j.waktu_mulai_reschedule, 'HH24:MI:SS') AS waktu_mulai_reschedule,
 			TO_CHAR(j.waktu_selesai_reschedule, 'HH24:MI:SS') AS waktu_selesai_reschedule,
 
-			TO_CHAR(COALESCE(j.tanggal_reschedule, j.tanggal), 'YYYY-MM-DD') AS tanggal_efektif,
-			TO_CHAR(COALESCE(j.waktu_mulai_reschedule, j.waktu_mulai), 'HH24:MI:SS') AS waktu_mulai_efektif,
-			TO_CHAR(COALESCE(j.waktu_selesai_reschedule, j.waktu_selesai), 'HH24:MI:SS') AS waktu_selesai_efektif,
+			TO_CHAR(
+				COALESCE(j.tanggal_reschedule, j.tanggal),
+				'YYYY-MM-DD'
+			) AS tanggal_efektif,
 
-			j.type_pertemuan
+			TO_CHAR(
+				COALESCE(j.waktu_mulai_reschedule, j.waktu_mulai),
+				'HH24:MI:SS'
+			) AS waktu_mulai_efektif,
+
+			TO_CHAR(
+				COALESCE(j.waktu_selesai_reschedule, j.waktu_selesai),
+				'HH24:MI:SS'
+			) AS waktu_selesai_efektif,
+
+			j.type_pertemuan,
+
+			ap.id_absensi_peserta,
+			ap.status_kehadiran,
+			TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS') AS check_in_at,
+			(ap.id_absensi_peserta IS NOT NULL) AS sudah_absen
+
 		FROM jadwal_kelas j
+
 		INNER JOIN paketkelas pk
 			ON pk.id_paketkelas = j.id_paketkelas
+
 		INNER JOIN pesertakelas pks
 			ON pks.id_paketkelas = j.id_paketkelas
+
 		INNER JOIN users u
 			ON u.id_user = j.id_mentor
+
+		LEFT JOIN absensi_peserta ap
+			ON ap.id_jadwal = j.id_jadwal
+			AND ap.id_peserta = $1
+			AND ap.status = 1
+
 		WHERE pks.id_user = $1
 		  AND j.status = 1
 		  AND pk.status = 1
 		  AND pks.status = 1
 		  AND u.status = 1
+
 		ORDER BY
 			COALESCE(j.tanggal_reschedule, j.tanggal) ASC,
 			COALESCE(j.waktu_mulai_reschedule, j.waktu_mulai) ASC,
@@ -59,12 +94,35 @@ func (r *Repository) GetJadwalPeserta(ctx context.Context, userID int) ([]Jadwal
 		var j JadwalDTO
 
 		if err := rows.Scan(
-			&j.IDJadwal, &j.IDPaketKelas, &j.NamaKelas,
-			&j.IDMentor, &j.NamaMentor, &j.NicknameMentor, &j.Topik, &j.Catatan,
-			&j.Tanggal, &j.WaktuMulai, &j.WaktuSelesai,
-			&j.TanggalReschedule, &j.WaktuMulaiReschedule, &j.WaktuSelesaiReschedule,
-			&j.TanggalEfektif, &j.WaktuMulaiEfektif, &j.WaktuSelesaiEfektif,
+			&j.IDJadwal,
+			&j.IDPaketKelas,
+			&j.NamaKelas,
+
+			&j.IDMentor,
+			&j.NamaMentor,
+			&j.NicknameMentor,
+
+			&j.Topik,
+			&j.Catatan,
+
+			&j.Tanggal,
+			&j.WaktuMulai,
+			&j.WaktuSelesai,
+
+			&j.TanggalReschedule,
+			&j.WaktuMulaiReschedule,
+			&j.WaktuSelesaiReschedule,
+
+			&j.TanggalEfektif,
+			&j.WaktuMulaiEfektif,
+			&j.WaktuSelesaiEfektif,
+
 			&j.TypePertemuan,
+
+			&j.IDAbsensiPeserta,
+			&j.StatusKehadiran,
+			&j.CheckInAt,
+			&j.SudahAbsen,
 		); err != nil {
 			return nil, err
 		}
@@ -76,11 +134,22 @@ func (r *Repository) GetJadwalPeserta(ctx context.Context, userID int) ([]Jadwal
 }
 
 
-func (r *Repository) GetJadwalPesertaByID(ctx context.Context, userID, jadwalID int) (*JadwalDTO, error) {
+func (r *Repository) GetJadwalPesertaByID(
+	ctx context.Context,
+	userID, jadwalID int,
+) (*JadwalDTO, error) {
 	query := `
 		SELECT
-			j.id_jadwal, j.id_paketkelas, pk.nama_kelas,
-			j.id_mentor, u.nama AS nama_mentor, u.nickname AS nickname_mentor, j.topik, j.catatan,
+			j.id_jadwal,
+			j.id_paketkelas,
+			pk.nama_kelas,
+
+			j.id_mentor,
+			u.nama AS nama_mentor,
+			u.nickname AS nickname_mentor,
+
+			j.topik,
+			j.catatan,
 
 			TO_CHAR(j.tanggal, 'YYYY-MM-DD') AS tanggal,
 			TO_CHAR(j.waktu_mulai, 'HH24:MI:SS') AS waktu_mulai,
@@ -90,18 +159,44 @@ func (r *Repository) GetJadwalPesertaByID(ctx context.Context, userID, jadwalID 
 			TO_CHAR(j.waktu_mulai_reschedule, 'HH24:MI:SS') AS waktu_mulai_reschedule,
 			TO_CHAR(j.waktu_selesai_reschedule, 'HH24:MI:SS') AS waktu_selesai_reschedule,
 
-			TO_CHAR(COALESCE(j.tanggal_reschedule, j.tanggal), 'YYYY-MM-DD') AS tanggal_efektif,
-			TO_CHAR(COALESCE(j.waktu_mulai_reschedule, j.waktu_mulai), 'HH24:MI:SS') AS waktu_mulai_efektif,
-			TO_CHAR(COALESCE(j.waktu_selesai_reschedule, j.waktu_selesai), 'HH24:MI:SS') AS waktu_selesai_efektif,
+			TO_CHAR(
+				COALESCE(j.tanggal_reschedule, j.tanggal),
+				'YYYY-MM-DD'
+			) AS tanggal_efektif,
 
-			j.type_pertemuan
+			TO_CHAR(
+				COALESCE(j.waktu_mulai_reschedule, j.waktu_mulai),
+				'HH24:MI:SS'
+			) AS waktu_mulai_efektif,
+
+			TO_CHAR(
+				COALESCE(j.waktu_selesai_reschedule, j.waktu_selesai),
+				'HH24:MI:SS'
+			) AS waktu_selesai_efektif,
+
+			j.type_pertemuan,
+
+			ap.id_absensi_peserta,
+			ap.status_kehadiran,
+			TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS') AS check_in_at,
+			(ap.id_absensi_peserta IS NOT NULL) AS sudah_absen
+
 		FROM jadwal_kelas j
+
 		INNER JOIN paketkelas pk
 			ON pk.id_paketkelas = j.id_paketkelas
+
 		INNER JOIN pesertakelas pks
 			ON pks.id_paketkelas = j.id_paketkelas
+
 		INNER JOIN users u
 			ON u.id_user = j.id_mentor
+
+		LEFT JOIN absensi_peserta ap
+			ON ap.id_jadwal = j.id_jadwal
+			AND ap.id_peserta = $2
+			AND ap.status = 1
+
 		WHERE j.id_jadwal = $1
 		  AND pks.id_user = $2
 		  AND j.status = 1
@@ -112,13 +207,41 @@ func (r *Repository) GetJadwalPesertaByID(ctx context.Context, userID, jadwalID 
 
 	var j JadwalDTO
 
-	err := r.DB.QueryRow(ctx, query, jadwalID, userID).Scan(
-		&j.IDJadwal, &j.IDPaketKelas, &j.NamaKelas,
-		&j.IDMentor, &j.NamaMentor, &j.NicknameMentor, &j.Topik, &j.Catatan,
-		&j.Tanggal, &j.WaktuMulai, &j.WaktuSelesai,
-		&j.TanggalReschedule, &j.WaktuMulaiReschedule, &j.WaktuSelesaiReschedule,
-		&j.TanggalEfektif, &j.WaktuMulaiEfektif, &j.WaktuSelesaiEfektif,
+	err := r.DB.QueryRow(
+		ctx,
+		query,
+		jadwalID,
+		userID,
+	).Scan(
+		&j.IDJadwal,
+		&j.IDPaketKelas,
+		&j.NamaKelas,
+
+		&j.IDMentor,
+		&j.NamaMentor,
+		&j.NicknameMentor,
+
+		&j.Topik,
+		&j.Catatan,
+
+		&j.Tanggal,
+		&j.WaktuMulai,
+		&j.WaktuSelesai,
+
+		&j.TanggalReschedule,
+		&j.WaktuMulaiReschedule,
+		&j.WaktuSelesaiReschedule,
+
+		&j.TanggalEfektif,
+		&j.WaktuMulaiEfektif,
+		&j.WaktuSelesaiEfektif,
+
 		&j.TypePertemuan,
+
+		&j.IDAbsensiPeserta,
+		&j.StatusKehadiran,
+		&j.CheckInAt,
+		&j.SudahAbsen,
 	)
 
 	if err != nil {

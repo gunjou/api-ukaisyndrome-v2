@@ -120,7 +120,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "ID Absensi Peserta",
-                        "name": "id",
+                        "name": "id_absensi",
                         "in": "path",
                         "required": true
                     }

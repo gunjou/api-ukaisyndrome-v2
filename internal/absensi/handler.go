@@ -142,7 +142,7 @@ func (h *Handler) GetAbsensiPeserta(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path int true "ID Absensi Peserta"
+// @Param id_absensi path int true "ID Absensi Peserta"
 // @Router /absensi/peserta/me/{id_absensi} [get]
 func (h *Handler) GetAbsensiPesertaByID(c *fiber.Ctx) error {
 	userID, ok := c.Locals("sub").(int)

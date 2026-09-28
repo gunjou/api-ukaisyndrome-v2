@@ -11,12 +11,16 @@ type JadwalDTO struct {
 	Catatan                *string `json:"catatan"`
 	Tanggal                string  `json:"tanggal"`
 	WaktuMulai             string  `json:"waktu_mulai"`
-	WaktuSelesai           string  `json:"waktu_selesai"`
-	TanggalReschedule      *string `json:"tanggal_reschedule"`
-	WaktuMulaiReschedule   *string `json:"waktu_mulai_reschedule"`
-	WaktuSelesaiReschedule *string `json:"waktu_selesai_reschedule"`
-	TanggalEfektif         string  `json:"tanggal_efektif"`
-	WaktuMulaiEfektif      string  `json:"waktu_mulai_efektif"`
-	WaktuSelesaiEfektif    string  `json:"waktu_selesai_efektif"`
-	TypePertemuan          string  `json:"type_pertemuan"`
+	WaktuSelesai            string  `json:"waktu_selesai"`
+	TanggalReschedule       *string `json:"tanggal_reschedule"`
+	WaktuMulaiReschedule    *string `json:"waktu_mulai_reschedule"`
+	WaktuSelesaiReschedule  *string `json:"waktu_selesai_reschedule"`
+	TanggalEfektif          string  `json:"tanggal_efektif"`
+	WaktuMulaiEfektif       string  `json:"waktu_mulai_efektif"`
+	WaktuSelesaiEfektif     string  `json:"waktu_selesai_efektif"`
+	TypePertemuan           string  `json:"type_pertemuan"`
+	IDAbsensiPeserta        *int    `json:"id_absensi_peserta"`
+	StatusKehadiran         *string `json:"status_kehadiran"`
+	CheckInAt               *string `json:"check_in_at"`
+	SudahAbsen              bool    `json:"sudah_absen"`
 }

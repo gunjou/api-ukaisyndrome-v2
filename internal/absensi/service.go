@@ -3,6 +3,8 @@ package absensi
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 )
 
 type Service struct {
@@ -18,6 +20,10 @@ var (
 	ErrLocationUnavailable = errors.New("lokasi mentor tidak tersedia")
 	ErrOutsideRadius     = errors.New("lokasi peserta berada di luar radius")
 	ErrAlreadyCheckedIn  = errors.New("peserta sudah melakukan check-in")
+	ErrSusulanBelumSelesai = errors.New("absensi susulan hanya dapat diajukan setelah mentor check-out",)
+	ErrSusulanBuktiWajib = errors.New("bukti foto kehadiran wajib dilampirkan",)
+	ErrSusulanSudahAda = errors.New("absensi atau pengajuan absensi sudah tersedia",)
+	ErrSusulanAlasanTidakValid = errors.New("alasan absensi susulan terlalu panjang",)
 )
 
 func (s *Service) CheckInPeserta(
@@ -100,4 +106,84 @@ func (s *Service) GetAbsensiPeserta(ctx context.Context, userID int) ([]AbsensiP
 
 func (s *Service) GetAbsensiPesertaByID(ctx context.Context, userID, absensiID int) (*AbsensiPesertaDTO, error) {
 	return s.Repo.GetAbsensiByID(ctx, userID, absensiID)
+}
+
+
+func (s *Service) AjukanAbsensiSusulan(
+	ctx context.Context,
+	userID int,
+	jadwalID int,
+	alasan string,
+	filename string,
+	contentType string,
+	fileData []byte,
+) (*AbsensiSusulanDTO, error) {
+	if jadwalID <= 0 {
+		return nil, ErrJadwalNotFound
+	}
+
+	if len(fileData) == 0 {
+		return nil, ErrSusulanBuktiWajib
+	}
+
+	// Batasi panjang alasan agar input tidak berlebihan.
+	if len(alasan) > 2000 {
+		return nil, ErrSusulanAlasanTidakValid
+	}
+
+	exists, err := s.Repo.IsJadwalPeserta(
+		ctx, userID, jadwalID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrJadwalNotFound
+	}
+
+	mentor, err := s.Repo.GetMentorCheckIn(ctx, jadwalID)
+	if err != nil {
+		return nil, err
+	}
+
+	if mentor == nil || mentor.CheckInAt.IsZero() {
+		return nil, ErrMentorNotStarted
+	}
+
+	if mentor.CheckOutAt == nil {
+		return nil, ErrSusulanBelumSelesai
+	}
+
+	alreadyCheckedIn, err := s.Repo.HasAbsensiPeserta(
+		ctx, userID, jadwalID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if alreadyCheckedIn {
+		return nil, ErrSusulanSudahAda
+	}
+
+	// Upload dilakukan setelah seluruh validasi bisnis awal lolos.
+	cdn := NewCDNClient()
+
+	buktiURL, err := cdn.UploadAbsensi(
+		ctx,
+		filename,
+		contentType,
+		fileData,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("upload bukti absensi: %w", err)
+	}
+
+	// Gunakan waktu server, bukan waktu yang dikirim client.
+	return s.Repo.InsertAbsensiSusulan(
+		ctx,
+		userID,
+		jadwalID,
+		alasan,
+		buktiURL,
+		time.Now(),
+	)
 }

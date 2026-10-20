@@ -29,6 +29,49 @@
                 "responses": {}
             }
         },
+        "/absensi/peserta/me/absensi-susulan": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mengajukan absensi susulan setelah mentor melakukan check-out dengan melampirkan bukti foto kehadiran.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Absensi"
+                ],
+                "summary": "Ajukan absensi susulan peserta",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Jadwal Kelas",
+                        "name": "id_jadwal",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Foto bukti kehadiran (JPEG, PNG, atau WebP; maksimal 5 MB)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Alasan mengajukan absensi susulan",
+                        "name": "alasan_absensi_susulan",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/absensi/peserta/me/check-in": {
             "post": {
                 "security": [

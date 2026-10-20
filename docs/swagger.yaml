@@ -84,6 +84,35 @@ paths:
       summary: Get detail absensi peserta
       tags:
       - Absensi
+  /absensi/peserta/me/absensi-susulan:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Mengajukan absensi susulan setelah mentor melakukan check-out dengan
+        melampirkan bukti foto kehadiran.
+      parameters:
+      - description: ID Jadwal Kelas
+        in: formData
+        name: id_jadwal
+        required: true
+        type: integer
+      - description: Foto bukti kehadiran (JPEG, PNG, atau WebP; maksimal 5 MB)
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Alasan mengajukan absensi susulan
+        in: formData
+        name: alasan_absensi_susulan
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Ajukan absensi susulan peserta
+      tags:
+      - Absensi
   /absensi/peserta/me/check-in:
     post:
       consumes:

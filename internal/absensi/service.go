@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
+	"strings"
+
+	"api-ukaisyndrome-v2/pkg/timeutil"
 )
 
 type Service struct {
@@ -12,30 +14,34 @@ type Service struct {
 }
 
 var (
-	ErrJadwalNotFound    = errors.New("jadwal tidak ditemukan")
-	ErrMentorNotStarted  = errors.New("mentor belum melakukan check-in")
-	ErrMeetingFinished   = errors.New("pertemuan sudah selesai")
-	ErrCheckInExpired    = errors.New("batas waktu check-in peserta telah berakhir")
-	ErrLocationRequired  = errors.New("lokasi wajib dikirim untuk pertemuan offline")
-	ErrLocationUnavailable = errors.New("lokasi mentor tidak tersedia")
-	ErrOutsideRadius     = errors.New("lokasi peserta berada di luar radius")
-	ErrAlreadyCheckedIn  = errors.New("peserta sudah melakukan check-in")
-	ErrSusulanBelumSelesai = errors.New("absensi susulan hanya dapat diajukan setelah mentor check-out",)
-	ErrSusulanBuktiWajib = errors.New("bukti foto kehadiran wajib dilampirkan",)
-	ErrSusulanSudahAda = errors.New("absensi atau pengajuan absensi sudah tersedia",)
-	ErrSusulanAlasanTidakValid = errors.New("alasan absensi susulan terlalu panjang",)
+	ErrJadwalNotFound          = errors.New("jadwal tidak ditemukan")
+	ErrMentorNotStarted        = errors.New("mentor belum melakukan check-in")
+	ErrMeetingFinished         = errors.New("pertemuan sudah selesai")
+	ErrCheckInExpired          = errors.New("batas waktu check-in peserta telah berakhir")
+	ErrLocationRequired        = errors.New("lokasi wajib dikirim untuk pertemuan offline")
+	ErrLocationUnavailable     = errors.New("lokasi mentor tidak tersedia")
+	ErrOutsideRadius           = errors.New("lokasi peserta berada di luar radius")
+	ErrAlreadyCheckedIn        = errors.New("peserta sudah melakukan check-in")
+	ErrSusulanBelumSelesai     = errors.New("absensi susulan hanya dapat diajukan setelah mentor check-out")
+	ErrSusulanBuktiWajib       = errors.New("bukti foto kehadiran wajib dilampirkan")
+	ErrSusulanSudahAda         = errors.New("absensi atau pengajuan absensi sudah tersedia")
+	ErrSusulanAlasanTidakValid = errors.New("alasan absensi susulan terlalu panjang")
 )
+
+func isOffline(typePertemuan string) bool {
+	return strings.EqualFold(strings.TrimSpace(typePertemuan), "OFFLINE")
+}
 
 func (s *Service) CheckInPeserta(
 	ctx context.Context,
 	userID int,
 	req CheckInPesertaRequest,
 ) (*AbsensiPesertaDTO, error) {
+	// ONLINE dicek via paket kelas, OFFLINE via kelompok belajar.
 	exists, err := s.Repo.IsJadwalPeserta(ctx, userID, req.IDJadwal)
 	if err != nil {
 		return nil, err
 	}
-
 	if !exists {
 		return nil, ErrJadwalNotFound
 	}
@@ -57,7 +63,7 @@ func (s *Service) CheckInPeserta(
 		return nil, ErrCheckInExpired
 	}
 
-	if mentor.TypePertemuan == "OFFLINE" {
+	if isOffline(mentor.TypePertemuan) {
 		if req.Latitude == nil || req.Longitude == nil {
 			return nil, ErrLocationRequired
 		}
@@ -80,20 +86,24 @@ func (s *Service) CheckInPeserta(
 		}
 	}
 
-	alreadyCheckedIn, err := s.Repo.HasAbsensiPeserta(
-		ctx,
-		userID,
-		req.IDJadwal,
-	)
+	alreadyCheckedIn, err := s.Repo.HasAbsensiPeserta(ctx, userID, req.IDJadwal)
 	if err != nil {
 		return nil, err
 	}
-
 	if alreadyCheckedIn {
 		return nil, ErrAlreadyCheckedIn
 	}
 
-	return s.Repo.InsertCheckIn(ctx, userID, req)
+	data, err := s.Repo.InsertCheckIn(ctx, userID, req)
+	if err != nil {
+		// Dua request check-in bersamaan: yang kedua ditolak oleh unique index.
+		if errors.Is(err, ErrAbsensiDuplikat) {
+			return nil, ErrAlreadyCheckedIn
+		}
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (s *Service) GetAbsensiStatusByJadwal(ctx context.Context, userID int, jadwalID int) (*AbsensiPesertaStatusDTO, error) {
@@ -107,7 +117,6 @@ func (s *Service) GetAbsensiPeserta(ctx context.Context, userID int) ([]AbsensiP
 func (s *Service) GetAbsensiPesertaByID(ctx context.Context, userID, absensiID int) (*AbsensiPesertaDTO, error) {
 	return s.Repo.GetAbsensiByID(ctx, userID, absensiID)
 }
-
 
 func (s *Service) AjukanAbsensiSusulan(
 	ctx context.Context,
@@ -131,9 +140,7 @@ func (s *Service) AjukanAbsensiSusulan(
 		return nil, ErrSusulanAlasanTidakValid
 	}
 
-	exists, err := s.Repo.IsJadwalPeserta(
-		ctx, userID, jadwalID,
-	)
+	exists, err := s.Repo.IsJadwalPeserta(ctx, userID, jadwalID)
 	if err != nil {
 		return nil, err
 	}
@@ -154,9 +161,7 @@ func (s *Service) AjukanAbsensiSusulan(
 		return nil, ErrSusulanBelumSelesai
 	}
 
-	alreadyCheckedIn, err := s.Repo.HasAbsensiPeserta(
-		ctx, userID, jadwalID,
-	)
+	alreadyCheckedIn, err := s.Repo.HasAbsensiPeserta(ctx, userID, jadwalID)
 	if err != nil {
 		return nil, err
 	}
@@ -167,23 +172,26 @@ func (s *Service) AjukanAbsensiSusulan(
 	// Upload dilakukan setelah seluruh validasi bisnis awal lolos.
 	cdn := NewCDNClient()
 
-	buktiURL, err := cdn.UploadAbsensi(
-		ctx,
-		filename,
-		contentType,
-		fileData,
-	)
+	buktiURL, err := cdn.UploadAbsensi(ctx, filename, contentType, fileData)
 	if err != nil {
 		return nil, fmt.Errorf("upload bukti absensi: %w", err)
 	}
 
-	// Gunakan waktu server, bukan waktu yang dikirim client.
-	return s.Repo.InsertAbsensiSusulan(
+	// Gunakan waktu server (timeutil, sama seperti check-in biasa), bukan waktu dari client.
+	data, err := s.Repo.InsertAbsensiSusulan(
 		ctx,
 		userID,
 		jadwalID,
 		alasan,
 		buktiURL,
-		time.Now(),
+		timeutil.Now(),
 	)
+	if err != nil {
+		if errors.Is(err, ErrAbsensiDuplikat) {
+			return nil, ErrSusulanSudahAda
+		}
+		return nil, err
+	}
+
+	return data, nil
 }

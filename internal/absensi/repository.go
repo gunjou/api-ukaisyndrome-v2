@@ -1,31 +1,147 @@
 package absensi
 
 import (
-	"api-ukaisyndrome-v2/pkg/timeutil"
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
+	"api-ukaisyndrome-v2/pkg/timeutil"
+
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// ErrAbsensiDuplikat dikembalikan ketika insert absensi melanggar unique index
+// (id_jadwal, id_peserta) WHERE status = 1. Service memetakannya ke error bisnis.
+var ErrAbsensiDuplikat = errors.New("absensi peserta sudah ada")
 
 type Repository struct {
 	DB *pgxpool.Pool
 }
 
+// aksesPesertaCondition menghasilkan kondisi SQL apakah peserta berhak atas jadwal j.
+//
+//   - ONLINE  -> peserta terdaftar aktif di paket kelas jadwal (pesertakelas)
+//   - OFFLINE -> peserta anggota aktif kelompok belajar jadwal (kelompok_belajar_peserta)
+//
+// userParam adalah placeholder untuk id peserta, misalnya "$1" atau "$2".
+// Aturannya sama dengan modul jadwal, supaya jadwal yang tampil pasti bisa dipakai check-in.
+func aksesPesertaCondition(userParam string) string {
+	return fmt.Sprintf(`
+		(
+			(
+				UPPER(j.type_pertemuan) = 'ONLINE'
+				AND EXISTS (
+					SELECT 1
+					FROM pesertakelas pks
+					INNER JOIN paketkelas pk_akses
+						ON pk_akses.id_paketkelas = pks.id_paketkelas
+						AND pk_akses.status = 1
+					WHERE pks.id_paketkelas = j.id_paketkelas
+					  AND pks.id_user = %[1]s
+					  AND pks.status = 1
+				)
+			)
+			OR
+			(
+				UPPER(j.type_pertemuan) = 'OFFLINE'
+				AND EXISTS (
+					SELECT 1
+					FROM kelompok_belajar_peserta kbp
+					INNER JOIN kelompok_belajar kb_akses
+						ON kb_akses.id_kelompok = kbp.id_kelompok
+						AND kb_akses.status = 1
+					WHERE kbp.id_kelompok = j.id_kelompok
+					  AND kbp.id_peserta = %[1]s
+					  AND kbp.status = 1
+				)
+			)
+		)
+	`, userParam)
+}
+
+// absensiSelect: paketkelas dan kelompok_belajar di-LEFT JOIN, karena jadwal
+// OFFLINE bisa tidak punya paket kelas dan jadwal ONLINE tidak punya kelompok.
+// Sebelumnya INNER JOIN paketkelas membuat absensi jadwal OFFLINE tidak ikut tampil.
+const absensiSelect = `
+	SELECT
+		ap.id_absensi_peserta,
+		ap.id_jadwal,
+		j.type_pertemuan,
+		j.id_paketkelas,
+		pk.nama_kelas,
+		j.id_kelompok,
+		kb.nama_kelompok,
+		j.topik,
+		j.catatan,
+		ap.id_peserta,
+		u.nama,
+		u.nickname,
+		ap.status_kehadiran,
+		TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS'),
+		ap.latitude,
+		ap.longitude,
+		ap.location_accuracy,
+		COALESCE(ap.jenis_absensi, 'tepat_waktu'),
+		ap.bukti_kehadiran_url,
+		COALESCE(ap.status_verifikasi, 'tidak_perlu_verifikasi'),
+		ap.alasan_absensi_susulan
+	FROM absensi_peserta ap
+	INNER JOIN jadwal_kelas j
+		ON j.id_jadwal = ap.id_jadwal
+	LEFT JOIN paketkelas pk
+		ON pk.id_paketkelas = j.id_paketkelas
+	LEFT JOIN kelompok_belajar kb
+		ON kb.id_kelompok = j.id_kelompok
+	INNER JOIN users u
+		ON u.id_user = ap.id_peserta
+`
+
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanAbsensi(row rowScanner, a *AbsensiPesertaDTO) error {
+	return row.Scan(
+		&a.IDAbsensiPeserta,
+		&a.IDJadwal,
+		&a.TypePertemuan,
+		&a.IDPaketKelas,
+		&a.NamaKelas,
+		&a.IDKelompok,
+		&a.NamaKelompok,
+		&a.Topik,
+		&a.Catatan,
+		&a.IDPeserta,
+		&a.NamaPeserta,
+		&a.NicknamePeserta,
+		&a.StatusKehadiran,
+		&a.CheckInAt,
+		&a.Latitude,
+		&a.Longitude,
+		&a.LocationAccuracy,
+		&a.JenisAbsensi,
+		&a.BuktiKehadiranURL,
+		&a.StatusVerifikasi,
+		&a.AlasanAbsensiSusulan,
+	)
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
 
 func (r *Repository) IsJadwalPeserta(ctx context.Context, userID, jadwalID int) (bool, error) {
-	
 	query := `
 		SELECT EXISTS (
 			SELECT 1
 			FROM jadwal_kelas j
-			INNER JOIN pesertakelas pks
-				ON pks.id_paketkelas = j.id_paketkelas
 			WHERE j.id_jadwal = $1
-			  AND pks.id_user = $2
 			  AND j.status = 1
-			  AND pks.status = 1
+			  AND ` + aksesPesertaCondition("$2") + `
 		)
 	`
 
@@ -35,54 +151,16 @@ func (r *Repository) IsJadwalPeserta(ctx context.Context, userID, jadwalID int) 
 	return exists, err
 }
 
-
 func (r *Repository) GetAbsensiByJadwal(ctx context.Context, userID, jadwalID int) (*AbsensiPesertaDTO, error) {
-	
-	query := `
-		SELECT
-			ap.id_absensi_peserta, ap.id_jadwal, j.id_paketkelas, pk.nama_kelas, j.topik, j.catatan, ap.id_peserta, 
-			u.nama, u.nickname, ap.status_kehadiran, TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS'), 
-			ap.latitude, ap.longitude, ap.location_accuracy, COALESCE(ap.jenis_absensi, 'tepat_waktu'), 
-			ap.bukti_kehadiran_url, COALESCE(ap.status_verifikasi, 'tidak_perlu_verifikasi'), ap.alasan_absensi_susulan
-		FROM absensi_peserta ap
-		INNER JOIN jadwal_kelas j
-			ON j.id_jadwal = ap.id_jadwal
-		INNER JOIN paketkelas pk
-			ON pk.id_paketkelas = j.id_paketkelas
-		INNER JOIN users u
-			ON u.id_user = ap.id_peserta
+	query := absensiSelect + `
 		WHERE ap.id_jadwal = $1
 		  AND ap.id_peserta = $2
 		  AND ap.status = 1
 	`
 
 	var result AbsensiPesertaDTO
-
-	err := r.DB.QueryRow(
-		ctx, query, jadwalID, userID,
-	).Scan(
-		&result.IDAbsensiPeserta,
-		&result.IDJadwal,
-		&result.IDPaketKelas,
-		&result.NamaKelas,
-		&result.Topik,
-		&result.Catatan,
-		&result.IDPeserta,
-		&result.NamaPeserta,
-		&result.NicknamePeserta,
-		&result.StatusKehadiran,
-		&result.CheckInAt,
-		&result.Latitude,
-		&result.Longitude,
-		&result.LocationAccuracy,
-		&result.JenisAbsensi,
-		&result.BuktiKehadiranURL,
-		&result.StatusVerifikasi,
-		&result.AlasanAbsensiSusulan,
-	)
-
-	if err != nil {
-		if err == pgx.ErrNoRows {
+	if err := scanAbsensi(r.DB.QueryRow(ctx, query, jadwalID, userID), &result); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -91,22 +169,26 @@ func (r *Repository) GetAbsensiByJadwal(ctx context.Context, userID, jadwalID in
 	return &result, nil
 }
 
-
 func (r *Repository) GetMentorCheckIn(ctx context.Context, jadwalID int) (*MentorCheckInDTO, error) {
-	
 	query := `
 		SELECT
-			am.id_absensi_mentor, am.id_jadwal, j.type_pertemuan, am.check_in_at, am.check_out_at, am.check_in_latitude, am.check_in_longitude, am.check_in_accuracy
+			am.id_absensi_mentor,
+			am.id_jadwal,
+			j.type_pertemuan,
+			am.check_in_at,
+			am.check_out_at,
+			am.check_in_latitude,
+			am.check_in_longitude,
+			am.check_in_accuracy
 		FROM absensi_mentor am
 		INNER JOIN jadwal_kelas j
 			ON j.id_jadwal = am.id_jadwal
-		WHERE
-			am.id_jadwal = $1
-			AND am.status = 1
-			AND j.status = 1
+		WHERE am.id_jadwal = $1
+		  AND am.status = 1
+		  AND j.status = 1
 		ORDER BY am.id_absensi_mentor DESC
 		LIMIT 1
-		`
+	`
 
 	var result MentorCheckInDTO
 
@@ -120,7 +202,7 @@ func (r *Repository) GetMentorCheckIn(ctx context.Context, jadwalID int) (*Mento
 		&result.Longitude,
 		&result.Accuracy,
 	); err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -129,19 +211,27 @@ func (r *Repository) GetMentorCheckIn(ctx context.Context, jadwalID int) (*Mento
 	return &result, nil
 }
 
-
+// GetActiveMentorCheckIn: sebelumnya check_in_at di-TO_CHAR menjadi string lalu
+// di-scan ke time.Time, sehingga selalu error. Sekarang di-scan langsung sebagai timestamp.
 func (r *Repository) GetActiveMentorCheckIn(ctx context.Context, jadwalID int) (*MentorCheckInDTO, error) {
-	
 	query := `
 		SELECT
-			id_absensi_mentor, id_jadwal,
-			TO_CHAR(check_in_at, 'YYYY-MM-DD HH24:MI:SS'),
-			check_in_latitude, check_in_longitude, check_in_accuracy
-		FROM absensi_mentor
-		WHERE id_jadwal = $1
-		  AND status = 1
-		  AND check_in_at IS NOT NULL
-		  AND check_out_at IS NULL
+			am.id_absensi_mentor,
+			am.id_jadwal,
+			j.type_pertemuan,
+			am.check_in_at,
+			am.check_out_at,
+			am.check_in_latitude,
+			am.check_in_longitude,
+			am.check_in_accuracy
+		FROM absensi_mentor am
+		INNER JOIN jadwal_kelas j
+			ON j.id_jadwal = am.id_jadwal
+		WHERE am.id_jadwal = $1
+		  AND am.status = 1
+		  AND am.check_in_at IS NOT NULL
+		  AND am.check_out_at IS NULL
+		ORDER BY am.id_absensi_mentor DESC
 		LIMIT 1
 	`
 
@@ -150,12 +240,14 @@ func (r *Repository) GetActiveMentorCheckIn(ctx context.Context, jadwalID int) (
 	if err := r.DB.QueryRow(ctx, query, jadwalID).Scan(
 		&result.IDAbsensiMentor,
 		&result.IDJadwal,
+		&result.TypePertemuan,
 		&result.CheckInAt,
+		&result.CheckOutAt,
 		&result.Latitude,
 		&result.Longitude,
 		&result.Accuracy,
 	); err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -164,9 +256,7 @@ func (r *Repository) GetActiveMentorCheckIn(ctx context.Context, jadwalID int) (
 	return &result, nil
 }
 
-
 func (r *Repository) HasAbsensiPeserta(ctx context.Context, userID, jadwalID int) (bool, error) {
-	
 	query := `
 		SELECT EXISTS (
 			SELECT 1
@@ -183,22 +273,18 @@ func (r *Repository) HasAbsensiPeserta(ctx context.Context, userID, jadwalID int
 	return exists, err
 }
 
-
-
 func (r *Repository) InsertCheckIn(ctx context.Context, userID int, req CheckInPesertaRequest) (*AbsensiPesertaDTO, error) {
-
 	query := `
 		INSERT INTO absensi_peserta (
-			id_jadwal, id_peserta, status_kehadiran, check_in_at, latitude, longitude, location_accuracy, jenis_absensi, 
-			bukti_kehadiran_url, status_verifikasi, alasan_absensi_susulan, status, created_at, updated_at
+			id_jadwal, id_peserta, status_kehadiran, check_in_at,
+			latitude, longitude, location_accuracy,
+			jenis_absensi, bukti_kehadiran_url, status_verifikasi, alasan_absensi_susulan,
+			status, created_at, updated_at
 		)
 		VALUES (
-			$1, $2, 'HADIR',
-			$3, $4, $5, $6,
-			'tepat_waktu',
-			NULL,
-			'tidak_perlu_verifikasi',
-			NULL,
+			$1, $2, 'HADIR', $3,
+			$4, $5, $6,
+			'tepat_waktu', NULL, 'tidak_perlu_verifikasi', NULL,
 			1, $3, $3
 		)
 		RETURNING id_absensi_peserta
@@ -218,16 +304,18 @@ func (r *Repository) InsertCheckIn(ctx context.Context, userID int, req CheckInP
 		req.Longitude,
 		req.LocationAccuracy,
 	).Scan(&idAbsensi); err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrAbsensiDuplikat
+		}
 		return nil, err
 	}
 
 	return r.GetAbsensiByID(ctx, userID, idAbsensi)
 }
 
-
-
+// GetAbsensiStatusByJadwal: sekarang juga mengecek hak akses peserta ke jadwal.
+// Sebelumnya peserta bisa melihat status jadwal mana pun selama id_jadwal-nya ada.
 func (r *Repository) GetAbsensiStatusByJadwal(ctx context.Context, userID, jadwalID int) (*AbsensiPesertaStatusDTO, error) {
-	
 	query := `
 		SELECT
 			ap.id_absensi_peserta,
@@ -238,6 +326,7 @@ func (r *Repository) GetAbsensiStatusByJadwal(ctx context.Context, userID, jadwa
 			ap.jenis_absensi,
 			ap.bukti_kehadiran_url,
 			ap.status_verifikasi,
+			ap.alasan_absensi_susulan,
 			COALESCE(
 				ap.id_absensi_peserta IS NOT NULL
 				AND (
@@ -253,13 +342,11 @@ func (r *Repository) GetAbsensiStatusByJadwal(ctx context.Context, userID, jadwa
 			AND ap.status = 1
 		WHERE j.id_jadwal = $2
 		  AND j.status = 1
-	`
+		  AND ` + aksesPesertaCondition("$1")
 
 	var result AbsensiPesertaStatusDTO
 
-	err := r.DB.QueryRow(
-		ctx, query, userID, jadwalID,
-	).Scan(
+	err := r.DB.QueryRow(ctx, query, userID, jadwalID).Scan(
 		&result.IDAbsensiPeserta,
 		&result.IDJadwal,
 		&result.StatusKehadiran,
@@ -268,10 +355,11 @@ func (r *Repository) GetAbsensiStatusByJadwal(ctx context.Context, userID, jadwa
 		&result.JenisAbsensi,
 		&result.BuktiKehadiranURL,
 		&result.StatusVerifikasi,
+		&result.AlasanAbsensiSusulan,
 		&result.KehadiranDisahkan,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -280,53 +368,16 @@ func (r *Repository) GetAbsensiStatusByJadwal(ctx context.Context, userID, jadwa
 	return &result, nil
 }
 
-
 func (r *Repository) GetAbsensiByID(ctx context.Context, userID, absensiID int) (*AbsensiPesertaDTO, error) {
-	
-	query := `
-		SELECT
-			ap.id_absensi_peserta, ap.id_jadwal, j.id_paketkelas, pk.nama_kelas, j.topik, j.catatan, ap.id_peserta, 
-			u.nama, u.nickname, ap.status_kehadiran, TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS'), 
-			ap.latitude, ap.longitude, ap.location_accuracy, COALESCE(ap.jenis_absensi, 'tepat_waktu'), 
-			ap.bukti_kehadiran_url, COALESCE(ap.status_verifikasi, 'tidak_perlu_verifikasi'), ap.alasan_absensi_susulan
-		FROM absensi_peserta ap
-		INNER JOIN jadwal_kelas j
-			ON j.id_jadwal = ap.id_jadwal
-		INNER JOIN paketkelas pk
-			ON pk.id_paketkelas = j.id_paketkelas
-		INNER JOIN users u
-			ON u.id_user = ap.id_peserta
+	query := absensiSelect + `
 		WHERE ap.id_absensi_peserta = $1
 		  AND ap.id_peserta = $2
 		  AND ap.status = 1
 	`
 
 	var result AbsensiPesertaDTO
-
-	err := r.DB.QueryRow(
-		ctx, query, absensiID, userID,
-	).Scan(
-		&result.IDAbsensiPeserta,
-		&result.IDJadwal,
-		&result.IDPaketKelas,
-		&result.NamaKelas,
-		&result.Topik,
-		&result.Catatan,
-		&result.IDPeserta,
-		&result.NamaPeserta,
-		&result.NicknamePeserta,
-		&result.StatusKehadiran,
-		&result.CheckInAt,
-		&result.Latitude,
-		&result.Longitude,
-		&result.LocationAccuracy,
-		&result.JenisAbsensi,
-		&result.BuktiKehadiranURL,
-		&result.StatusVerifikasi,
-		&result.AlasanAbsensiSusulan,
-	)
-	if err != nil {
-		if err == pgx.ErrNoRows {
+	if err := scanAbsensi(r.DB.QueryRow(ctx, query, absensiID, userID), &result); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -335,22 +386,8 @@ func (r *Repository) GetAbsensiByID(ctx context.Context, userID, absensiID int) 
 	return &result, nil
 }
 
-
 func (r *Repository) GetAbsensiPeserta(ctx context.Context, userID int) ([]AbsensiPesertaDTO, error) {
-	
-	query := `
-		SELECT
-			ap.id_absensi_peserta, ap.id_jadwal, j.id_paketkelas, pk.nama_kelas, j.topik, j.catatan, ap.id_peserta, 
-			u.nama, u.nickname, ap.status_kehadiran, TO_CHAR(ap.check_in_at, 'YYYY-MM-DD HH24:MI:SS'), 
-			ap.latitude, ap.longitude, ap.location_accuracy, COALESCE(ap.jenis_absensi, 'tepat_waktu'), 
-			ap.bukti_kehadiran_url, COALESCE(ap.status_verifikasi, 'tidak_perlu_verifikasi'), ap.alasan_absensi_susulan
-		FROM absensi_peserta ap
-		INNER JOIN jadwal_kelas j
-			ON j.id_jadwal = ap.id_jadwal
-		INNER JOIN paketkelas pk
-			ON pk.id_paketkelas = j.id_paketkelas
-		INNER JOIN users u
-			ON u.id_user = ap.id_peserta
+	query := absensiSelect + `
 		WHERE ap.id_peserta = $1
 		  AND ap.status = 1
 		ORDER BY ap.check_in_at DESC
@@ -366,30 +403,9 @@ func (r *Repository) GetAbsensiPeserta(ctx context.Context, userID int) ([]Absen
 
 	for rows.Next() {
 		var a AbsensiPesertaDTO
-
-		if err := rows.Scan(
-			&a.IDAbsensiPeserta,
-			&a.IDJadwal,
-			&a.IDPaketKelas,
-			&a.NamaKelas,
-			&a.Topik,
-			&a.Catatan,
-			&a.IDPeserta,
-			&a.NamaPeserta,
-			&a.NicknamePeserta,
-			&a.StatusKehadiran,
-			&a.CheckInAt,
-			&a.Latitude,
-			&a.Longitude,
-			&a.LocationAccuracy,
-			&a.JenisAbsensi,
-			&a.BuktiKehadiranURL,
-			&a.StatusVerifikasi,
-			&a.AlasanAbsensiSusulan,
-		); err != nil {
+		if err := scanAbsensi(rows, &a); err != nil {
 			return nil, err
 		}
-
 		result = append(result, a)
 	}
 
@@ -400,21 +416,30 @@ func (r *Repository) GetAbsensiPeserta(ctx context.Context, userID int) ([]Absen
 	return result, nil
 }
 
-
-func (r *Repository) InsertAbsensiSusulan(ctx context.Context, userID int, jadwalID int, alasan string, buktiURL string, now time.Time,) (*AbsensiSusulanDTO, error) {
-	
+func (r *Repository) InsertAbsensiSusulan(
+	ctx context.Context,
+	userID int,
+	jadwalID int,
+	alasan string,
+	buktiURL string,
+	now time.Time,
+) (*AbsensiSusulanDTO, error) {
 	query := `
 		INSERT INTO absensi_peserta (
-			id_jadwal, id_peserta, status_kehadiran, check_in_at, latitude, longitude, location_accuracy, jenis_absensi, 
-			bukti_kehadiran_url, status_verifikasi, alasan_absensi_susulan, status, created_at, updated_at
+			id_jadwal, id_peserta, status_kehadiran, check_in_at,
+			latitude, longitude, location_accuracy,
+			jenis_absensi, bukti_kehadiran_url, status_verifikasi, alasan_absensi_susulan,
+			status, created_at, updated_at
 		)
 		VALUES (
-			$1, $2, 'HADIR', $3, NULL, NULL, NULL, 'susulan', $4, 'menunggu_verifikasi', 
-			NULLIF($5, ''), 1, $3, $3
+			$1, $2, 'HADIR', $3,
+			NULL, NULL, NULL,
+			'susulan', $4, 'menunggu_verifikasi', NULLIF($5, ''),
+			1, $3, $3
 		)
 		RETURNING
-			id_absensi_peserta, id_jadwal, id_peserta, status_kehadiran, check_in_at, jenis_absensi, 
-			bukti_kehadiran_url, status_verifikasi, alasan_absensi_susulan
+			id_absensi_peserta, id_jadwal, id_peserta, status_kehadiran, check_in_at,
+			jenis_absensi, bukti_kehadiran_url, status_verifikasi, alasan_absensi_susulan
 	`
 
 	var result AbsensiSusulanDTO
@@ -439,6 +464,9 @@ func (r *Repository) InsertAbsensiSusulan(ctx context.Context, userID int, jadwa
 		&result.AlasanAbsensiSusulan,
 	)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrAbsensiDuplikat
+		}
 		return nil, err
 	}
 

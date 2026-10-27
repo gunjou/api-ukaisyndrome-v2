@@ -227,7 +227,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get daftar jadwal aktif berdasarkan kelas yang diikuti peserta
+      description: Get daftar jadwal aktif peserta. ONLINE berdasarkan paket kelas,
+        OFFLINE berdasarkan kelompok belajar.
       produces:
       - application/json
       responses: {}
@@ -240,7 +241,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get detail jadwal aktif yang berada pada kelas peserta
+      description: Get detail jadwal aktif milik peserta (ONLINE via paket kelas,
+        OFFLINE via kelompok belajar)
       parameters:
       - description: ID Jadwal
         in: path

@@ -280,7 +280,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get daftar jadwal aktif berdasarkan kelas yang diikuti peserta",
+                "description": "Get daftar jadwal aktif peserta. ONLINE berdasarkan paket kelas, OFFLINE berdasarkan kelompok belajar.",
                 "consumes": [
                     "application/json"
                 ],
@@ -301,7 +301,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get detail jadwal aktif yang berada pada kelas peserta",
+                "description": "Get detail jadwal aktif milik peserta (ONLINE via paket kelas, OFFLINE via kelompok belajar)",
                 "consumes": [
                     "application/json"
                 ],

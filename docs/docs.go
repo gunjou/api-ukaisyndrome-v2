@@ -43,7 +43,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Mengajukan absensi susulan setelah mentor melakukan check-out dengan melampirkan bukti foto kehadiran.",
+                "description": "Mengajukan absensi susulan setelah mentor melakukan check-out atau jadwal berakhir, dengan melampirkan bukti foto kehadiran.",
                 "consumes": [
                     "multipart/form-data"
                 ],

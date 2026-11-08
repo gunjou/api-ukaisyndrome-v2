@@ -54,31 +54,41 @@ func (h *Handler) CheckInPeserta(c *fiber.Ctx) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrJadwalNotFound):
-			return response.Error(c, 404, err.Error(), "NOT_FOUND", nil)
+			return response.Error(c, 404, err.Error(), "JADWAL_NOT_FOUND", nil)
 
 		case errors.Is(err, ErrMentorNotStarted):
-			return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
+			return response.Error(c, 400, err.Error(), "MENTOR_NOT_STARTED", nil)
 
 		case errors.Is(err, ErrMeetingFinished):
-			return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
+			return response.Error(c, 400, err.Error(), "MEETING_FINISHED", nil)
 
 		case errors.Is(err, ErrCheckInExpired):
-			return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
+			return response.Error(c, 400, err.Error(), "CHECK_IN_EXPIRED", nil)
 
 		case errors.Is(err, ErrLocationRequired):
-			return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
+			return response.Error(c, 400, err.Error(), "LOCATION_REQUIRED", nil)
+
+		case errors.Is(err, ErrLocationInvalid):
+			return response.Error(c, 400, err.Error(), "LOCATION_INVALID", nil)
 
 		case errors.Is(err, ErrLocationUnavailable):
-			return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
+			return response.Error(c, 400, err.Error(), "MENTOR_LOCATION_UNAVAILABLE", nil)
+
+		case errors.Is(err, ErrGPSAccuracyLow):
+			return response.Error(c, 400, err.Error(), "GPS_ACCURACY_LOW", nil)
 
 		case errors.Is(err, ErrOutsideRadius):
-			return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
+			return response.Error(c, 400, err.Error(), "OUTSIDE_RADIUS", nil)
 
 		case errors.Is(err, ErrAlreadyCheckedIn):
-			return response.Error(c, 400, err.Error(), "BAD_REQUEST", nil)
+			return response.Error(c, 400, err.Error(), "ALREADY_CHECKED_IN", nil)
 		}
 
-		return response.Error(c, 500, err.Error(), "INTERNAL_ERROR", nil)
+		return response.Error(
+			c, 500,
+			"Terjadi kesalahan server saat menyimpan absensi. Coba lagi, bila berlanjut hubungi admin.",
+			"INTERNAL_ERROR", err.Error(),
+		)
 	}
 
 	return response.Success(c, data)
@@ -177,7 +187,7 @@ func (h *Handler) GetAbsensiPesertaByID(c *fiber.Ctx) error {
 
  // AjukanAbsensiSusulan godoc
  // @Summary Ajukan absensi susulan peserta
- // @Description Mengajukan absensi susulan setelah mentor melakukan check-out dengan melampirkan bukti foto kehadiran.
+ // @Description Mengajukan absensi susulan setelah mentor melakukan check-out atau jadwal berakhir, dengan melampirkan bukti foto kehadiran.
  // @Tags Absensi
  // @Accept mpfd
  // @Produce json
@@ -270,13 +280,20 @@ func (h *Handler) AjukanAbsensiSusulan(c *fiber.Ctx) error {
 		switch {
 		case errors.Is(err, ErrJadwalNotFound):
 			return response.Error(
-				c, 404, err.Error(), "NOT_FOUND", nil,
+				c, 404, err.Error(), "JADWAL_NOT_FOUND", nil,
 			)
 
-		case errors.Is(err, ErrMentorNotStarted),
-			errors.Is(err, ErrSusulanBelumSelesai),
-			errors.Is(err, ErrSusulanBuktiWajib),
-			errors.Is(err, ErrSusulanSudahAda),
+		case errors.Is(err, ErrSusulanBelumSelesai):
+			return response.Error(
+				c, 400, err.Error(), "SUSULAN_NOT_OPEN", nil,
+			)
+
+		case errors.Is(err, ErrSusulanSudahAda):
+			return response.Error(
+				c, 400, err.Error(), "SUSULAN_ALREADY_EXISTS", nil,
+			)
+
+		case errors.Is(err, ErrSusulanBuktiWajib),
 			errors.Is(err, ErrSusulanAlasanTidakValid):
 			return response.Error(
 				c, 400, err.Error(), "BAD_REQUEST", nil,
@@ -285,16 +302,16 @@ func (h *Handler) AjukanAbsensiSusulan(c *fiber.Ctx) error {
 		case errors.Is(err, ErrCDNNotConfigured),
 			errors.Is(err, ErrCDNUploadFailed):
 			return response.Error(
-				c, 502, "gagal memproses bukti kehadiran",
-				"CDN_ERROR", nil,
+				c, 502,
+				"Foto bukti kehadiran gagal diunggah ke server penyimpanan. Coba lagi, bila berlanjut hubungi admin.",
+				"CDN_ERROR", err.Error(),
 			)
 		}
 
-		// Detail error internal dicatat di server, bukan dikirim
-		// kepada client karena dapat mengandung informasi sensitif.
 		return response.Error(
-			c, 500, "gagal menyimpan pengajuan absensi",
-			"INTERNAL_ERROR", nil,
+			c, 500,
+			"Terjadi kesalahan server saat menyimpan pengajuan susulan. Coba lagi, bila berlanjut hubungi admin.",
+			"INTERNAL_ERROR", err.Error(),
 		)
 	}
 

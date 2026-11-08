@@ -334,12 +334,20 @@ func (r *Repository) GetAbsensiStatusByJadwal(ctx context.Context, userID, jadwa
 					OR ap.status_verifikasi = 'disetujui'
 				),
 				FALSE
-			) AS kehadiran_disahkan
+			) AS kehadiran_disahkan,
+			CASE
+				WHEN am.check_in_at IS NULL THEN 'BELUM_MULAI'
+				WHEN am.check_out_at IS NULL THEN 'BERLANGSUNG'
+				ELSE 'SELESAI'
+			END AS status_mentor
 		FROM jadwal_kelas j
 		LEFT JOIN absensi_peserta ap
 			ON ap.id_jadwal = j.id_jadwal
 			AND ap.id_peserta = $1
 			AND ap.status = 1
+		LEFT JOIN absensi_mentor am
+			ON am.id_jadwal = j.id_jadwal
+			AND am.status = 1
 		WHERE j.id_jadwal = $2
 		  AND j.status = 1
 		  AND ` + aksesPesertaCondition("$1")
@@ -357,6 +365,7 @@ func (r *Repository) GetAbsensiStatusByJadwal(ctx context.Context, userID, jadwa
 		&result.StatusVerifikasi,
 		&result.AlasanAbsensiSusulan,
 		&result.KehadiranDisahkan,
+		&result.StatusMentor,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -366,6 +375,21 @@ func (r *Repository) GetAbsensiStatusByJadwal(ctx context.Context, userID, jadwa
 	}
 
 	return &result, nil
+}
+
+func (r *Repository) IsJadwalBerakhir(ctx context.Context, jadwalID int) (bool, error) {
+	query := `
+		SELECT COALESCE(tanggal_reschedule, tanggal)
+			+ COALESCE(waktu_selesai_reschedule, waktu_selesai) < $2::timestamp
+		FROM jadwal_kelas
+		WHERE id_jadwal = $1
+		  AND status = 1
+	`
+
+	var ended bool
+	err := r.DB.QueryRow(ctx, query, jadwalID, timeutil.Now()).Scan(&ended)
+
+	return ended, err
 }
 
 func (r *Repository) GetAbsensiByID(ctx context.Context, userID, absensiID int) (*AbsensiPesertaDTO, error) {

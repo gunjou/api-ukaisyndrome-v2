@@ -43,6 +43,8 @@ type AbsensiPesertaStatusDTO struct {
 	StatusVerifikasi     *string `json:"status_verifikasi"`
 	AlasanAbsensiSusulan *string `json:"alasan_absensi_susulan"`
 	KehadiranDisahkan    bool    `json:"kehadiran_disahkan"`
+	// BELUM_MULAI, BERLANGSUNG, atau SELESAI
+	StatusMentor string `json:"status_mentor"`
 }
 
 type CheckInPesertaRequest struct {

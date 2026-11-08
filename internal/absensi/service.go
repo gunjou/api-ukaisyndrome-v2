@@ -14,22 +14,21 @@ type Service struct {
 }
 
 var (
-	ErrJadwalNotFound          = errors.New("jadwal tidak ditemukan")
-	ErrMentorNotStarted        = errors.New("mentor belum melakukan check-in")
-	ErrMeetingFinished         = errors.New("pertemuan sudah selesai")
-	ErrCheckInExpired          = errors.New("batas waktu check-in peserta telah berakhir")
-	ErrLocationRequired        = errors.New("lokasi wajib dikirim untuk pertemuan offline")
-	ErrLocationUnavailable     = errors.New("lokasi mentor tidak tersedia")
-	ErrOutsideRadius           = errors.New("lokasi peserta berada di luar radius")
-	ErrAlreadyCheckedIn        = errors.New("peserta sudah melakukan check-in")
-	ErrSusulanBelumSelesai     = errors.New("absensi susulan hanya dapat diajukan setelah mentor check-out")
-	ErrSusulanBuktiWajib       = errors.New("bukti foto kehadiran wajib dilampirkan")
-	ErrSusulanSudahAda         = errors.New("absensi atau pengajuan absensi sudah tersedia")
-	ErrSusulanAlasanTidakValid = errors.New("alasan absensi susulan terlalu panjang")
+	ErrJadwalNotFound          = errors.New("Jadwal tidak ditemukan atau Anda tidak terdaftar pada jadwal ini. Hubungi admin bila seharusnya terdaftar.")
+	ErrMentorNotStarted        = errors.New("Mentor belum memulai kelas. Coba lagi setelah mentor melakukan check-in.")
+	ErrMeetingFinished         = errors.New("Mentor sudah menutup kelas (check-out). Silakan ajukan absensi susulan.")
+	ErrCheckInExpired          = errors.New("Batas waktu check-in sudah lewat. Silakan ajukan absensi susulan setelah jadwal berakhir.")
+	ErrLocationRequired        = errors.New("Lokasi wajib dikirim untuk pertemuan offline. Aktifkan lokasi lalu coba lagi.")
+	ErrLocationInvalid         = errors.New("Koordinat lokasi tidak valid. Ambil ulang lokasi Anda lalu coba lagi.")
+	ErrLocationUnavailable     = errors.New("Lokasi check-in mentor tidak tersedia, sehingga jarak tidak dapat dihitung. Hubungi admin.")
+	ErrGPSAccuracyLow          = errors.New("Akurasi GPS terlalu rendah. Pindah ke area terbuka, aktifkan lokasi presisi, lalu coba lagi.")
+	ErrOutsideRadius           = errors.New("Anda berada di luar area kelas")
+	ErrAlreadyCheckedIn        = errors.New("Anda sudah tercatat hadir pada jadwal ini.")
+	ErrSusulanBelumSelesai     = errors.New("Absensi susulan baru dapat diajukan setelah mentor check-out atau jadwal berakhir.")
+	ErrSusulanBuktiWajib       = errors.New("Foto bukti kehadiran wajib dilampirkan.")
+	ErrSusulanSudahAda         = errors.New("Anda sudah memiliki absensi atau pengajuan susulan pada jadwal ini.")
+	ErrSusulanAlasanTidakValid = errors.New("Alasan absensi susulan terlalu panjang (maksimal 2000 karakter).")
 )
-
-// check_in_accuracy kini menyimpan akurasi GPS asli mentor, bukan radius.
-const pesertaRadiusMeter = 100
 
 func isOffline(typePertemuan string) bool {
 	return strings.EqualFold(strings.TrimSpace(typePertemuan), "OFFLINE")
@@ -71,6 +70,14 @@ func (s *Service) CheckInPeserta(
 			return nil, ErrLocationRequired
 		}
 
+		if !isValidLocation(*req.Latitude, *req.Longitude, req.LocationAccuracy) {
+			return nil, ErrLocationInvalid
+		}
+
+		if accuracyOrDefault(req.LocationAccuracy) > pesertaMaxRadiusMeter {
+			return nil, ErrGPSAccuracyLow
+		}
+
 		if mentor.Latitude == nil || mentor.Longitude == nil {
 			return nil, ErrLocationUnavailable
 		}
@@ -82,8 +89,13 @@ func (s *Service) CheckInPeserta(
 			*req.Longitude,
 		)
 
-		if distance > pesertaRadiusMeter {
-			return nil, ErrOutsideRadius
+		radius := pesertaRadius(mentor.Accuracy, req.LocationAccuracy)
+		if distance > radius {
+			return nil, outsideRadiusError(
+				*req.Latitude, *req.Longitude,
+				*mentor.Latitude, *mentor.Longitude,
+				distance, radius,
+			)
 		}
 	}
 
@@ -154,12 +166,15 @@ func (s *Service) AjukanAbsensiSusulan(
 		return nil, err
 	}
 
-	if mentor == nil || mentor.CheckInAt.IsZero() {
-		return nil, ErrMentorNotStarted
-	}
-
-	if mentor.CheckOutAt == nil {
-		return nil, ErrSusulanBelumSelesai
+	// Mentor yang lupa check-out atau tidak hadir tidak boleh menutup jalur susulan.
+	if mentor == nil || mentor.CheckOutAt == nil {
+		ended, err := s.Repo.IsJadwalBerakhir(ctx, jadwalID)
+		if err != nil {
+			return nil, err
+		}
+		if !ended {
+			return nil, ErrSusulanBelumSelesai
+		}
 	}
 
 	alreadyCheckedIn, err := s.Repo.HasAbsensiPeserta(ctx, userID, jadwalID)

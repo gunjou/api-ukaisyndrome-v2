@@ -28,6 +28,9 @@ var (
 	ErrSusulanAlasanTidakValid = errors.New("alasan absensi susulan terlalu panjang")
 )
 
+// check_in_accuracy kini menyimpan akurasi GPS asli mentor, bukan radius.
+const pesertaRadiusMeter = 100
+
 func isOffline(typePertemuan string) bool {
 	return strings.EqualFold(strings.TrimSpace(typePertemuan), "OFFLINE")
 }
@@ -68,9 +71,7 @@ func (s *Service) CheckInPeserta(
 			return nil, ErrLocationRequired
 		}
 
-		if mentor.Latitude == nil ||
-			mentor.Longitude == nil ||
-			mentor.Accuracy == nil {
+		if mentor.Latitude == nil || mentor.Longitude == nil {
 			return nil, ErrLocationUnavailable
 		}
 
@@ -81,7 +82,7 @@ func (s *Service) CheckInPeserta(
 			*req.Longitude,
 		)
 
-		if distance > *mentor.Accuracy {
+		if distance > pesertaRadiusMeter {
 			return nil, ErrOutsideRadius
 		}
 	}

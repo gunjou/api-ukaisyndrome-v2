@@ -6,6 +6,7 @@ func RegisterRoutes(r fiber.Router, handler *Handler) {
 	absensi := r.Group("/absensi/peserta/me")
 
 	absensi.Post("/check-in", handler.CheckInPeserta)
+	absensi.Post("/check-in/cek-lokasi", handler.CekLokasiCheckIn)
 	absensi.Post("/absensi-susulan", handler.AjukanAbsensiSusulan)
 
 	absensi.Get("", handler.GetAbsensiPeserta)

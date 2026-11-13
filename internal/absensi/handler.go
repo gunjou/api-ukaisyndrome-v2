@@ -52,48 +52,92 @@ func (h *Handler) CheckInPeserta(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrJadwalNotFound):
-			return response.Error(c, 404, err.Error(), "JADWAL_NOT_FOUND", nil)
-
-		case errors.Is(err, ErrMentorNotStarted):
-			return response.Error(c, 400, err.Error(), "MENTOR_NOT_STARTED", nil)
-
-		case errors.Is(err, ErrMeetingFinished):
-			return response.Error(c, 400, err.Error(), "MEETING_FINISHED", nil)
-
-		case errors.Is(err, ErrCheckInExpired):
-			return response.Error(c, 400, err.Error(), "CHECK_IN_EXPIRED", nil)
-
-		case errors.Is(err, ErrLocationRequired):
-			return response.Error(c, 400, err.Error(), "LOCATION_REQUIRED", nil)
-
-		case errors.Is(err, ErrLocationInvalid):
-			return response.Error(c, 400, err.Error(), "LOCATION_INVALID", nil)
-
-		case errors.Is(err, ErrLocationUnavailable):
-			return response.Error(c, 400, err.Error(), "MENTOR_LOCATION_UNAVAILABLE", nil)
-
-		case errors.Is(err, ErrGPSAccuracyLow):
-			return response.Error(c, 400, err.Error(), "GPS_ACCURACY_LOW", nil)
-
-		case errors.Is(err, ErrOutsideRadius):
-			return response.Error(c, 400, err.Error(), "OUTSIDE_RADIUS", nil)
-
-		case errors.Is(err, ErrAlreadyCheckedIn):
-			return response.Error(c, 400, err.Error(), "ALREADY_CHECKED_IN", nil)
-		}
-
-		return response.Error(
-			c, 500,
-			"Terjadi kesalahan server saat menyimpan absensi. Coba lagi, bila berlanjut hubungi admin.",
-			"INTERNAL_ERROR", err.Error(),
-		)
+		return checkInError(c, err)
 	}
 
 	return response.Success(c, data)
 }
 
+
+func checkInError(c *fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, ErrJadwalNotFound):
+		return response.Error(c, 404, err.Error(), "JADWAL_NOT_FOUND", nil)
+
+	case errors.Is(err, ErrMentorNotStarted):
+		return response.Error(c, 400, err.Error(), "MENTOR_NOT_STARTED", nil)
+
+	case errors.Is(err, ErrMeetingFinished):
+		return response.Error(c, 400, err.Error(), "MEETING_FINISHED", nil)
+
+	case errors.Is(err, ErrCheckInExpired):
+		return response.Error(c, 400, err.Error(), "CHECK_IN_EXPIRED", nil)
+
+	case errors.Is(err, ErrLocationRequired):
+		return response.Error(c, 400, err.Error(), "LOCATION_REQUIRED", nil)
+
+	case errors.Is(err, ErrLocationInvalid):
+		return response.Error(c, 400, err.Error(), "LOCATION_INVALID", nil)
+
+	case errors.Is(err, ErrLocationUnavailable):
+		return response.Error(c, 400, err.Error(), "MENTOR_LOCATION_UNAVAILABLE", nil)
+
+	case errors.Is(err, ErrGPSAccuracyLow):
+		return response.Error(c, 400, err.Error(), "GPS_ACCURACY_LOW", nil)
+
+	case errors.Is(err, ErrOutsideRadius):
+		return response.Error(c, 400, err.Error(), "OUTSIDE_RADIUS", nil)
+
+	case errors.Is(err, ErrAlreadyCheckedIn):
+		return response.Error(c, 400, err.Error(), "ALREADY_CHECKED_IN", nil)
+	}
+
+	return response.Error(
+		c, 500,
+		"Terjadi kesalahan server saat menyimpan absensi. Coba lagi, bila berlanjut hubungi admin.",
+		"INTERNAL_ERROR", err.Error(),
+	)
+}
+
+// CekLokasiCheckIn godoc
+// @Summary Cek lokasi peserta sebelum check-in
+// @Description Menjalankan validasi check-in yang sama tanpa menyimpan absensi. Dipakai frontend untuk indikator tombol absensi.
+// @Description Lokasi belum memenuhi (akurasi rendah / di luar area) tetap 200 dengan siap=false; kondisi lain (mentor belum mulai, dsb.) memakai error yang sama dengan check-in.
+// @Tags Absensi
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CheckInPesertaRequest true "Lokasi peserta saat ini"
+// @Success 200 {object} CekLokasiCheckInDTO
+// @Router /absensi/peserta/me/check-in/cek-lokasi [post]
+func (h *Handler) CekLokasiCheckIn(c *fiber.Ctx) error {
+	userID, ok := c.Locals("sub").(int)
+	if !ok {
+		return response.Error(c, 401, "unauthorized", "UNAUTHORIZED", nil)
+	}
+
+	var req CheckInPesertaRequest
+	if err := c.BodyParser(&req); err != nil {
+		return response.Error(c, 400, "invalid request body", "BAD_REQUEST", nil)
+	}
+
+	if req.IDJadwal <= 0 {
+		return response.Error(c, 400, "id_jadwal is required", "BAD_REQUEST", nil)
+	}
+
+	err := h.Service.CekLokasiCheckIn(c.Context(), userID, req)
+
+	switch {
+	case err == nil:
+		return response.Success(c, CekLokasiCheckInDTO{Siap: true, Kode: "SIAP", Pesan: "Lokasi Anda sudah berada di area kelas."})
+	case errors.Is(err, ErrOutsideRadius):
+		return response.Success(c, CekLokasiCheckInDTO{Kode: "OUTSIDE_RADIUS", Pesan: err.Error()})
+	case errors.Is(err, ErrGPSAccuracyLow):
+		return response.Success(c, CekLokasiCheckInDTO{Kode: "GPS_ACCURACY_LOW", Pesan: err.Error()})
+	}
+
+	return checkInError(c, err)
+}
 
 // GetAbsensiStatusByJadwal godoc
 // @Summary Get status absensi peserta berdasarkan jadwal

@@ -9,11 +9,13 @@ func TestPesertaRadius(t *testing.T) {
 		mentor, peserta *float64
 		want            float64
 	}{
-		{ptr(10), ptr(10), 120},
+		{ptr(7), ptr(7), 140},
+		{ptr(10), ptr(10), 140},
+		{ptr(7), ptr(60), 180},
 		{ptr(50), ptr(50), 200},
 		{ptr(100), ptr(100), 300},
 		{ptr(300), ptr(300), 300},
-		{nil, ptr(10), 210},
+		{nil, ptr(10), 220},
 		{nil, nil, 300},
 	}
 

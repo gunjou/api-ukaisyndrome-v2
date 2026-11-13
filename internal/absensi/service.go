@@ -34,52 +34,54 @@ func isOffline(typePertemuan string) bool {
 	return strings.EqualFold(strings.TrimSpace(typePertemuan), "OFFLINE")
 }
 
-func (s *Service) CheckInPeserta(
+// CekLokasiCheckIn menjalankan validasi check-in tanpa menyimpan absensi.
+// Dipakai juga oleh CheckInPeserta agar indikator di frontend selalu sama dengan hasil check-in.
+func (s *Service) CekLokasiCheckIn(
 	ctx context.Context,
 	userID int,
 	req CheckInPesertaRequest,
-) (*AbsensiPesertaDTO, error) {
+) error {
 	// ONLINE dicek via paket kelas, OFFLINE via kelompok belajar.
 	exists, err := s.Repo.IsJadwalPeserta(ctx, userID, req.IDJadwal)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if !exists {
-		return nil, ErrJadwalNotFound
+		return ErrJadwalNotFound
 	}
 
 	mentor, err := s.Repo.GetMentorCheckIn(ctx, req.IDJadwal)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if mentor == nil || mentor.CheckInAt.IsZero() {
-		return nil, ErrMentorNotStarted
+		return ErrMentorNotStarted
 	}
 
 	if mentor.CheckOutAt != nil {
-		return nil, ErrMeetingFinished
+		return ErrMeetingFinished
 	}
 
 	if isCheckInExpired(mentor.CheckInAt) {
-		return nil, ErrCheckInExpired
+		return ErrCheckInExpired
 	}
 
 	if isOffline(mentor.TypePertemuan) {
 		if req.Latitude == nil || req.Longitude == nil {
-			return nil, ErrLocationRequired
+			return ErrLocationRequired
 		}
 
 		if !isValidLocation(*req.Latitude, *req.Longitude, req.LocationAccuracy) {
-			return nil, ErrLocationInvalid
+			return ErrLocationInvalid
 		}
 
 		if accuracyOrDefault(req.LocationAccuracy) > pesertaMaxRadiusMeter {
-			return nil, ErrGPSAccuracyLow
+			return ErrGPSAccuracyLow
 		}
 
 		if mentor.Latitude == nil || mentor.Longitude == nil {
-			return nil, ErrLocationUnavailable
+			return ErrLocationUnavailable
 		}
 
 		distance := calculateDistance(
@@ -91,12 +93,24 @@ func (s *Service) CheckInPeserta(
 
 		radius := pesertaRadius(mentor.Accuracy, req.LocationAccuracy)
 		if distance > radius {
-			return nil, outsideRadiusError(
+			return outsideRadiusError(
 				*req.Latitude, *req.Longitude,
 				*mentor.Latitude, *mentor.Longitude,
 				distance, radius,
 			)
 		}
+	}
+
+	return nil
+}
+
+func (s *Service) CheckInPeserta(
+	ctx context.Context,
+	userID int,
+	req CheckInPesertaRequest,
+) (*AbsensiPesertaDTO, error) {
+	if err := s.CekLokasiCheckIn(ctx, userID, req); err != nil {
+		return nil, err
 	}
 
 	alreadyCheckedIn, err := s.Repo.HasAbsensiPeserta(ctx, userID, req.IDJadwal)

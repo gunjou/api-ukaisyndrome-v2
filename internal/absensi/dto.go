@@ -54,6 +54,13 @@ type CheckInPesertaRequest struct {
 	LocationAccuracy *float64 `json:"location_accuracy"`
 }
 
+type CekLokasiCheckInDTO struct {
+	Siap bool `json:"siap"`
+	// SIAP, OUTSIDE_RADIUS, atau GPS_ACCURACY_LOW
+	Kode  string `json:"kode"`
+	Pesan string `json:"pesan"`
+}
+
 type MentorCheckInDTO struct {
 	IDAbsensiMentor int
 	IDJadwal        int

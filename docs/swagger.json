@@ -104,6 +104,45 @@
                 "responses": {}
             }
         },
+        "/absensi/peserta/me/check-in/cek-lokasi": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Menjalankan validasi check-in yang sama tanpa menyimpan absensi. Dipakai frontend untuk indikator tombol absensi.\nLokasi belum memenuhi (akurasi rendah / di luar area) tetap 200 dengan siap=false; kondisi lain (mentor belum mulai, dsb.) memakai error yang sama dengan check-in.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Absensi"
+                ],
+                "summary": "Cek lokasi peserta sebelum check-in",
+                "parameters": [
+                    {
+                        "description": "Lokasi peserta saat ini",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/absensi.CheckInPesertaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/absensi.CekLokasiCheckInDTO"
+                        }
+                    }
+                }
+            }
+        },
         "/absensi/peserta/me/jadwal/{id_jadwal}": {
             "get": {
                 "security": [
@@ -1035,6 +1074,21 @@
         }
     },
     "definitions": {
+        "absensi.CekLokasiCheckInDTO": {
+            "type": "object",
+            "properties": {
+                "kode": {
+                    "description": "SIAP, OUTSIDE_RADIUS, atau GPS_ACCURACY_LOW",
+                    "type": "string"
+                },
+                "pesan": {
+                    "type": "string"
+                },
+                "siap": {
+                    "type": "boolean"
+                }
+            }
+        },
         "absensi.CheckInPesertaRequest": {
             "type": "object",
             "properties": {

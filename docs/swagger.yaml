@@ -1,5 +1,15 @@
 basePath: /api/v2
 definitions:
+  absensi.CekLokasiCheckInDTO:
+    properties:
+      kode:
+        description: SIAP, OUTSIDE_RADIUS, atau GPS_ACCURACY_LOW
+        type: string
+      pesan:
+        type: string
+      siap:
+        type: boolean
+    type: object
   absensi.CheckInPesertaRequest:
     properties:
       id_jadwal:
@@ -132,6 +142,32 @@ paths:
       security:
       - BearerAuth: []
       summary: Check-in peserta
+      tags:
+      - Absensi
+  /absensi/peserta/me/check-in/cek-lokasi:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Menjalankan validasi check-in yang sama tanpa menyimpan absensi. Dipakai frontend untuk indikator tombol absensi.
+        Lokasi belum memenuhi (akurasi rendah / di luar area) tetap 200 dengan siap=false; kondisi lain (mentor belum mulai, dsb.) memakai error yang sama dengan check-in.
+      parameters:
+      - description: Lokasi peserta saat ini
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/absensi.CheckInPesertaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/absensi.CekLokasiCheckInDTO'
+      security:
+      - BearerAuth: []
+      summary: Cek lokasi peserta sebelum check-in
       tags:
       - Absensi
   /absensi/peserta/me/jadwal/{id_jadwal}:

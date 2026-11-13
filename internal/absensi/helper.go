@@ -13,6 +13,9 @@ const (
 	pesertaBaseRadiusMeter = 100
 	pesertaMaxRadiusMeter  = 300
 	defaultGPSAccuracy     = 100
+
+	// Akurasi di dalam ruangan sering terlalu optimis (±7 m padahal meleset puluhan meter).
+	minGPSAccuracy = 20
 )
 
 func accuracyOrDefault(accuracy *float64) float64 {
@@ -22,10 +25,13 @@ func accuracyOrDefault(accuracy *float64) float64 {
 	return *accuracy
 }
 
+// Lolos bila lingkaran ketidakpastian kedua titik masih bisa bersinggungan dengan radius dasar.
 func pesertaRadius(mentorAccuracy, pesertaAccuracy *float64) float64 {
 	return math.Min(
 		pesertaMaxRadiusMeter,
-		pesertaBaseRadiusMeter+accuracyOrDefault(mentorAccuracy)+accuracyOrDefault(pesertaAccuracy),
+		pesertaBaseRadiusMeter+
+			math.Max(accuracyOrDefault(mentorAccuracy), minGPSAccuracy)+
+			math.Max(accuracyOrDefault(pesertaAccuracy), minGPSAccuracy),
 	)
 }
 
